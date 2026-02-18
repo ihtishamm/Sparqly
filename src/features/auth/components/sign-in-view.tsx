@@ -36,7 +36,7 @@ export default function SignInViewPage() {
           >
             <path d='M15 6v12a3 3 0 1 0 3-3H6a3 3 0 1 0 3 3V6a3 3 0 1 0-3 3h12a3 3 0 1 0-3-3' />
           </svg>
-          Logo
+          Sparqly
         </div>
       </div>
       <div className='flex h-full items-center justify-center p-4 lg:p-8'>

@@ -39,6 +39,11 @@
   --sidebar-accent-foreground: oklch(0.205 0 0);
   --sidebar-border: oklch(0.922 0 0);
   --sidebar-ring: oklch(0.708 0 0);
+  /* Gradient (indigo → violet) via primary/accent */
+  --gradient-start: var(--primary);
+  --gradient-end: var(--accent);
+  --glass-bg: oklch(1 0 0 / 0.6);
+  --glass-border: oklch(0.922 0 0 / 0.5);
 }
 
 .dark {
@@ -73,6 +78,41 @@
   --sidebar-accent-foreground: oklch(0.985 0 0);
   --sidebar-border: oklch(1 0 0 / 10%);
   --sidebar-ring: oklch(0.439 0 0);
+  --glass-bg: oklch(0.145 0 0 / 0.4);
+  --glass-border: oklch(1 0 0 / 0.1);
+}
+
+/* Upload zone drag-state border glow only */
+@keyframes glow-border {
+  0%,
+  100% {
+    box-shadow: 0 0 0 1px var(--border);
+  }
+  50% {
+    box-shadow: 0 0 0 2px var(--ring);
+  }
+}
+
+.upload-zone-drag {
+  animation: glow-border 1.5s ease-in-out infinite;
+}
+
+/* Rich text editor placeholder (theme colors) */
+.rich-text-editor .ProseMirror p.is-editor-empty:first-child::before {
+  content: attr(data-placeholder);
+  float: left;
+  color: var(--muted-foreground);
+  pointer-events: none;
+  height: 0;
+}
+
+.rich-text-editor .ProseMirror [data-placeholder]:empty::before {
+  content: attr(data-placeholder);
+  color: var(--muted-foreground);
+}
+
+.rich-text-editor .ProseMirror .is-editor-empty:first-child::before {
+  color: var(--muted-foreground);
 }
 
 @theme inline {

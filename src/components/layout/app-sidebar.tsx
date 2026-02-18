@@ -48,13 +48,13 @@ import * as React from 'react';
 import { Icons } from '../icons';
 import { OrgSwitcher } from '../org-switcher';
 export const company = {
-  name: 'Acme Inc',
+  name: 'Sparqly',
   logo: IconPhotoUp,
   plan: 'Enterprise'
 };
 
 const tenants = [
-  { id: '1', name: 'Acme Inc' },
+  { id: '1', name: 'Sparqly' },
   { id: '2', name: 'Beta Corp' },
   { id: '3', name: 'Gamma Ltd' }
 ];
@@ -75,7 +75,7 @@ export default function AppSidebar() {
   }, [isOpen]);
 
   return (
-    <Sidebar collapsible='icon'>
+    <Sidebar collapsible='icon' data-tour='sidebar'>
       <SidebarHeader>
         <OrgSwitcher
           tenants={tenants}

@@ -6,6 +6,7 @@ import SearchInput from '../search-input';
 import { UserNav } from './user-nav';
 import { ThemeSelector } from '../theme-selector';
 import { ModeToggle } from './ThemeToggle/theme-toggle';
+import { TourTriggerButton } from '@/features/tour/components/tour-trigger-button';
 
 export default function Header() {
   return (
@@ -20,6 +21,7 @@ export default function Header() {
         <div className='hidden md:flex'>
           <SearchInput />
         </div>
+        <TourTriggerButton />
         <UserNav />
         <ModeToggle />
         <ThemeSelector />

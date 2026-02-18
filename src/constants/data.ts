@@ -11,52 +11,69 @@ export type Product = {
   updated_at: string;
 };
 
-//Info: The following data is used for the sidebar navigation and Cmd K bar.
+// Info: Used for sidebar navigation and Cmd K bar.
 export const navItems: NavItem[] = [
   {
-    title: 'Dashboard',
-    url: '/dashboard/overview',
-    icon: 'dashboard',
+    title: 'Repurpose',
+    url: '/dashboard/repurpose',
+    icon: 'repurpose',
     isActive: false,
-    shortcut: ['d', 'd'],
-    items: [] // Empty array as there are no child items for Dashboard
+    shortcut: ['r', 'r'],
+    items: []
   },
   {
-    title: 'Product',
-    url: '/dashboard/product',
-    icon: 'product',
-    shortcut: ['p', 'p'],
+    title: 'Create',
+    url: '/dashboard/create',
+    icon: 'create',
     isActive: false,
-    items: [] // No child items
+    shortcut: ['c', 'c'],
+    items: []
+  },
+  {
+    title: 'Content',
+    url: '/dashboard/content',
+    icon: 'content',
+    isActive: false,
+    shortcut: ['o', 'o'],
+    items: []
+  },
+  {
+    title: 'Analytics',
+    url: '/dashboard/analytics',
+    icon: 'analytics',
+    isActive: false,
+    shortcut: ['a', 'a'],
+    items: []
+  },
+  {
+    title: 'Subscription',
+    url: '/dashboard/subscription',
+    icon: 'subscription',
+    isActive: false,
+    shortcut: ['s', 's'],
+    items: []
+  },
+  {
+    title: 'Connections',
+    url: '/dashboard/connections',
+    icon: 'connections',
+    isActive: false,
+    shortcut: ['n', 'n'],
+    items: []
   },
   {
     title: 'Account',
-    url: '#', // Placeholder as there is no direct link for the parent
+    url: '#',
     icon: 'billing',
     isActive: true,
-
     items: [
       {
         title: 'Profile',
         url: '/dashboard/profile',
         icon: 'userPen',
         shortcut: ['m', 'm']
-      },
-      {
-        title: 'Login',
-        shortcut: ['l', 'l'],
-        url: '/',
-        icon: 'login'
       }
     ]
-  },
-  {
-    title: 'Kanban',
-    url: '/dashboard/kanban',
-    icon: 'kanban',
-    shortcut: ['k', 'k'],
-    isActive: false,
-    items: [] // No child items
   }
 ];
 

@@ -8,6 +8,8 @@ import { ThemeSelector } from '../theme-selector';
 import { ModeToggle } from './ThemeToggle/theme-toggle';
 import { TourTriggerButton } from '@/features/tour/components/tour-trigger-button';
 
+import { NotificationCenter } from './notification-center';
+
 export default function Header() {
   return (
     <header className='flex h-16 shrink-0 items-center justify-between gap-2 transition-[width,height] ease-linear group-has-data-[collapsible=icon]/sidebar-wrapper:h-12'>
@@ -21,7 +23,7 @@ export default function Header() {
         <div className='hidden md:flex'>
           <SearchInput />
         </div>
-        <TourTriggerButton />
+        <NotificationCenter />
         <UserNav />
         <ModeToggle />
         <ThemeSelector />

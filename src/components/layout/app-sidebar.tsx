@@ -161,7 +161,10 @@ export default function AppSidebar() {
         </SidebarGroup>
 
         <SidebarGroup className='mt-auto border-t p-4'>
-          <div className='bg-primary/5 border-primary/10 flex flex-col gap-3 rounded-2xl border p-4'>
+          <div
+            data-tour='credits'
+            className='bg-primary/5 border-primary/10 flex flex-col gap-3 rounded-2xl border p-4'
+          >
             <div className='flex items-center justify-between'>
               <span className='text-muted-foreground text-[10px] font-bold tracking-widest uppercase'>
                 Credits
@@ -200,6 +203,7 @@ export default function AppSidebar() {
               <DropdownMenuTrigger asChild>
                 <SidebarMenuButton
                   size='lg'
+                  data-tour='user-profile'
                   className='data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground'
                 >
                   {user && (

@@ -115,7 +115,8 @@ function TimelineElementItem({
   element: TimelineElement;
   zoom: number;
 }) {
-  const { selectedElementId, setSelectedElement } = useEditorStore();
+  const { updateElement, selectedElementId, setSelectedElement } =
+    useEditorStore();
   const isSelected = selectedElementId === element.id;
 
   const left = element.startTimeMs / zoom;
@@ -123,13 +124,25 @@ function TimelineElementItem({
 
   return (
     <motion.div
-      layout
+      drag='x'
+      dragMomentum={false}
+      dragElastic={0}
+      onDragEnd={(_, info) => {
+        const deltaMs = info.offset.x * zoom;
+        updateElement(element.id, {
+          startTimeMs: Math.max(0, element.startTimeMs + deltaMs),
+          endTimeMs: Math.max(
+            element.endTimeMs - element.startTimeMs,
+            element.endTimeMs + deltaMs
+          )
+        });
+      }}
       onClick={(e) => {
         e.stopPropagation();
         setSelectedElement(element.id);
       }}
       className={cn(
-        'absolute top-1 bottom-1 flex cursor-pointer items-center overflow-hidden rounded-md border px-2 text-[10px] transition-shadow',
+        'absolute top-1 bottom-1 flex cursor-pointer items-center overflow-hidden rounded-md border px-2 text-[10px] transition-shadow select-none',
         isSelected
           ? 'bg-primary text-primary-foreground border-primary z-10 shadow-lg'
           : 'bg-background border-border hover:border-primary/50'
@@ -140,7 +153,7 @@ function TimelineElementItem({
         {element.type === 'text' ? element.properties.text : element.type}
       </span>
 
-      {/* Resizers */}
+      {/* Resizers (Visual only for now) */}
       <div className='absolute top-0 bottom-0 left-0 w-1 cursor-ew-resize hover:bg-white/30' />
       <div className='absolute top-0 right-0 bottom-0 w-1 cursor-ew-resize hover:bg-white/30' />
     </motion.div>

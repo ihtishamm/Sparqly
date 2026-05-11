@@ -16,64 +16,154 @@ import {
 } from '@tabler/icons-react';
 import Link from 'next/link';
 
-export default function EditorViewPage() {
-  const { isPlaying, togglePlay, setComposition, tracks } = useEditorStore();
+import { useParams } from 'next/navigation';
+import { useEditorApi } from '../api/editor-api';
+import { toast } from 'sonner';
+import { Skeleton } from '@/components/ui/skeleton';
 
-  // Mock initial composition for demo
+import { useOnboardingStore } from '@/store/onboarding-store';
+
+export default function EditorViewPage() {
+  const { id } = useParams();
+  const { useGetComposition, useSaveComposition, useCreateRenderingJob } =
+    useEditorApi();
+  const { data: composition, isLoading } = useGetComposition(id as string);
+  const saveMutation = useSaveComposition();
+  const exportMutation = useCreateRenderingJob();
+
+  const {
+    isPlaying,
+    togglePlay,
+    setComposition,
+    tracks,
+    durationMs,
+    addElement,
+    currentTimeMs
+  } = useEditorStore();
+
+  const { startTour, completedTours } = useOnboardingStore();
+
+  // Onboarding Tour for Editor
   React.useEffect(() => {
-    setComposition('demo-comp', 30000, [
-      {
-        id: 'video-track',
-        type: 'video',
-        order: 0,
-        elements: [
+    if (
+      !isLoading &&
+      composition &&
+      !completedTours.includes('editor-overview')
+    ) {
+      startTour(
+        [
           {
-            id: 'main-video',
-            type: 'video',
-            startTimeMs: 0,
-            endTimeMs: 30000,
-            layer: 0,
-            properties: {
-              url: 'https://sample-videos.com/video123/mp4/720/big_buck_bunny_720p_1mb.mp4',
-              sourceStartMs: 0,
-              sourceEndMs: 30000
-            }
-          }
-        ]
-      },
-      {
-        id: 'text-track',
-        type: 'text',
-        order: 1,
-        elements: [
-          {
-            id: 'caption-1',
-            type: 'text',
-            startTimeMs: 1000,
-            endTimeMs: 5000,
-            layer: 10,
-            properties: {
-              text: 'Welcome to the Future of Content',
-              fontSize: 80,
-              position: { x: 50, y: 80 }
-            }
+            target: '[data-tour="editor-canvas"]',
+            title: 'The Production Canvas',
+            content:
+              'This is where your video comes to life. You can preview your edits, text overlays, and transitions in real-time.',
+            placement: 'bottom'
           },
           {
-            id: 'caption-2',
-            type: 'text',
-            startTimeMs: 6000,
-            endTimeMs: 12000,
-            layer: 10,
-            properties: {
-              text: 'Automate your Social Media presence',
-              fontSize: 60,
-              position: { x: 50, y: 80 }
-            }
+            target: '[data-tour="editor-timeline"]',
+            title: 'The Interactive Timeline',
+            content:
+              'Drag and drop clips to change their timing. You can precisely control when every element appears and disappears.',
+            placement: 'top'
+          },
+          {
+            target: '[data-tour="editor-properties"]',
+            title: 'Styling & Properties',
+            content:
+              'Select any element on the timeline to customize its properties like font size, color, and position.',
+            placement: 'left'
+          },
+          {
+            target: '[data-tour="editor-save"]',
+            title: 'Always Save Your Work',
+            content:
+              "Don't forget to save your project frequently to sync all your creative changes to the cloud.",
+            placement: 'bottom'
+          },
+          {
+            target: '[data-tour="editor-export"]',
+            title: 'Produce High-Quality Video',
+            content:
+              "Once you're happy with your masterpiece, click Export to start the rendering process. This will consume 100 AI credits.",
+            placement: 'bottom'
           }
-        ]
+        ],
+        'editor-overview'
+      );
+    }
+  }, [isLoading, composition, completedTours, startTour]);
+
+  const handleAddText = () => {
+    const textTrack = tracks.find((t) => t.type === 'text');
+    if (!textTrack) {
+      toast.error('No text track found to add text to.');
+      return;
+    }
+
+    const newElement = {
+      id: `text-${Math.random().toString(36).substring(7)}`,
+      type: 'text' as const,
+      startTimeMs: currentTimeMs,
+      endTimeMs: Math.min(currentTimeMs + 3000, durationMs),
+      layer: 10,
+      properties: {
+        text: 'Double click to edit',
+        fontSize: 60,
+        position: { x: 50, y: 50 },
+        fontColor: '#FFFFFF'
       }
-    ]);
-  }, []);
+    };
+
+    addElement(textTrack.id, newElement);
+    toast.success('Text added to timeline');
+  };
+
+  // Hydrate store from backend data
+  React.useEffect(() => {
+    if (composition) {
+      setComposition(
+        composition.id,
+        composition.durationMs,
+        composition.tracks
+      );
+    }
+  }, [composition, setComposition]);
+
+  const handleSave = async () => {
+    try {
+      await saveMutation.mutateAsync({
+        id: id as string,
+        data: { tracks }
+      });
+      toast.success('Project saved successfully');
+    } catch (error) {
+      toast.error('Failed to save project');
+    }
+  };
+
+  const handleExport = async () => {
+    try {
+      const job = await exportMutation.mutateAsync(id as string);
+      toast.success('Export started!', {
+        description: 'You can track the progress in the export dashboard.'
+      });
+    } catch (error: any) {
+      toast.error(error.message || 'Failed to start export');
+    }
+  };
+
+  if (isLoading) {
+    return (
+      <div className='flex h-screen items-center justify-center'>
+        <div className='flex flex-col items-center gap-4'>
+          <Skeleton className='h-32 w-32 rounded-full' />
+          <p className='text-muted-foreground animate-pulse font-medium'>
+            Loading your project...
+          </p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className='bg-background flex h-screen flex-col overflow-hidden'>
@@ -87,10 +177,11 @@ export default function EditorViewPage() {
           </Link>
           <div>
             <h1 className='text-sm font-bold tracking-tight'>
-              AI Generated Short #1
+              {composition?.name || 'Untitled Project'}
             </h1>
             <p className='text-muted-foreground text-[10px] tracking-widest uppercase'>
-              Draft • 1080x1920 • 30fps
+              {composition?.width}x{composition?.height} • {composition?.fps}fps
+              • {(durationMs / 1000).toFixed(1)}s
             </p>
           </div>
         </div>
@@ -114,15 +205,31 @@ export default function EditorViewPage() {
           <Button
             variant='outline'
             size='sm'
+            onClick={handleSave}
+            disabled={saveMutation.isPending}
+            data-tour='editor-save'
             className='gap-2 rounded-full px-4'
           >
-            <IconDeviceFloppy className='h-4 w-4' /> Save
+            {saveMutation.isPending ? (
+              <div className='border-primary h-4 w-4 animate-spin rounded-full border-2 border-t-transparent' />
+            ) : (
+              <IconDeviceFloppy className='h-4 w-4' />
+            )}
+            {saveMutation.isPending ? 'Saving...' : 'Save'}
           </Button>
           <Button
             size='sm'
+            onClick={handleExport}
+            disabled={exportMutation.isPending}
+            data-tour='editor-export'
             className='shadow-primary/20 gap-2 rounded-full px-6 shadow-lg'
           >
-            <IconShare className='h-4 w-4' /> Export
+            {exportMutation.isPending ? (
+              <div className='h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent' />
+            ) : (
+              <IconShare className='h-4 w-4' />
+            )}
+            {exportMutation.isPending ? 'Queuing...' : 'Export'}
           </Button>
         </div>
       </header>
@@ -134,6 +241,7 @@ export default function EditorViewPage() {
           <Button
             variant='ghost'
             size='icon'
+            onClick={handleAddText}
             className='rounded-xl'
             title='Add Text'
           >
@@ -143,12 +251,18 @@ export default function EditorViewPage() {
 
         {/* Center: Canvas & Timeline */}
         <div className='flex min-w-0 flex-1 flex-col'>
-          <PlayerCanvas />
-          <Timeline />
+          <div data-tour='editor-canvas'>
+            <PlayerCanvas />
+          </div>
+          <div data-tour='editor-timeline'>
+            <Timeline />
+          </div>
         </div>
 
-        {/* Right: Properties */}
-        <PropertiesPanel />
+        {/* Right: Properties Panel */}
+        <div data-tour='editor-properties'>
+          <PropertiesPanel />
+        </div>
       </main>
     </div>
   );

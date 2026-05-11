@@ -15,12 +15,9 @@ import {
   ChartTooltip,
   ChartTooltipContent
 } from '@/components/ui/chart';
-import {
-  MOCK_KPIS,
-  MOCK_LINE_DATA,
-  MOCK_PLATFORM_BREAKDOWN,
-  MOCK_TOP_POSTS
-} from '../constants/mock-analytics';
+import { useAnalytics } from '../api/analytics';
+import { Skeleton } from '@/components/ui/skeleton';
+import { format } from 'date-fns';
 import {
   LineChart,
   Line,
@@ -48,6 +45,34 @@ const chartConfig = {
 };
 
 export default function AnalyticsViewPage() {
+  const { useGetOverview } = useAnalytics();
+  const { data, isLoading } = useGetOverview();
+
+  if (isLoading) {
+    return (
+      <PageContainer scrollable={true}>
+        <div className='flex flex-1 flex-col gap-6'>
+          <Skeleton className='h-10 w-48' />
+          <div className='grid gap-4 sm:grid-cols-2 lg:grid-cols-4'>
+            {[1, 2, 3, 4].map((i) => (
+              <Skeleton key={i} className='h-24 rounded-2xl' />
+            ))}
+          </div>
+          <Skeleton className='h-[400px] rounded-2xl' />
+        </div>
+      </PageContainer>
+    );
+  }
+
+  const kpis = data?.kpis || {
+    totalPosts: 0,
+    views: 0,
+    engagementRate: 0,
+    growth: 0
+  };
+  const timeSeries = data?.timeSeries || [];
+  const platformBreakdown = data?.platformBreakdown || [];
+
   return (
     <PageContainer scrollable={true}>
       <div className='flex flex-1 flex-col gap-6'>
@@ -65,7 +90,7 @@ export default function AnalyticsViewPage() {
             <GlassCardHeader>
               <GlassCardDescription>Total Posts</GlassCardDescription>
               <GlassCardTitle className='text-2xl'>
-                <AnimatedCounter value={MOCK_KPIS.totalPosts} />
+                <AnimatedCounter value={kpis.totalPosts} />
               </GlassCardTitle>
             </GlassCardHeader>
           </GlassCard>
@@ -73,7 +98,7 @@ export default function AnalyticsViewPage() {
             <GlassCardHeader>
               <GlassCardDescription>Views</GlassCardDescription>
               <GlassCardTitle className='text-2xl'>
-                <AnimatedCounter value={MOCK_KPIS.views} />
+                <AnimatedCounter value={kpis.views} />
               </GlassCardTitle>
             </GlassCardHeader>
           </GlassCard>
@@ -82,7 +107,7 @@ export default function AnalyticsViewPage() {
               <GlassCardDescription>Engagement Rate</GlassCardDescription>
               <GlassCardTitle className='text-2xl'>
                 <AnimatedCounter
-                  value={MOCK_KPIS.engagementRate}
+                  value={kpis.engagementRate}
                   suffix='%'
                   decimals={1}
                 />
@@ -93,11 +118,7 @@ export default function AnalyticsViewPage() {
             <GlassCardHeader>
               <GlassCardDescription>Growth</GlassCardDescription>
               <GlassCardTitle className='text-2xl'>
-                <AnimatedCounter
-                  value={MOCK_KPIS.growth}
-                  suffix='%'
-                  decimals={1}
-                />
+                <AnimatedCounter value={kpis.growth} suffix='%' decimals={1} />
               </GlassCardTitle>
             </GlassCardHeader>
           </GlassCard>
@@ -106,12 +127,12 @@ export default function AnalyticsViewPage() {
         <GlassCard className='rounded-2xl'>
           <GlassCardHeader>
             <GlassCardTitle>Views over time</GlassCardTitle>
-            <GlassCardDescription>Last 6 months</GlassCardDescription>
+            <GlassCardDescription>Last 30 days</GlassCardDescription>
           </GlassCardHeader>
           <GlassCardContent>
             <ChartContainer config={chartConfig} className='h-[280px] w-full'>
               <LineChart
-                data={MOCK_LINE_DATA}
+                data={timeSeries}
                 margin={{ top: 8, right: 8, left: 8, bottom: 8 }}
               >
                 <CartesianGrid
@@ -119,7 +140,12 @@ export default function AnalyticsViewPage() {
                   className='stroke-border/50'
                   vertical={false}
                 />
-                <XAxis dataKey='name' tickLine={false} axisLine={false} />
+                <XAxis
+                  dataKey='date'
+                  tickLine={false}
+                  axisLine={false}
+                  tickFormatter={(v) => format(new Date(v), 'MMM dd')}
+                />
                 <YAxis
                   tickLine={false}
                   axisLine={false}
@@ -154,14 +180,14 @@ export default function AnalyticsViewPage() {
                 <PieChart>
                   <ChartTooltip content={<ChartTooltipContent hideLabel />} />
                   <Pie
-                    data={MOCK_PLATFORM_BREAKDOWN}
+                    data={platformBreakdown}
                     dataKey='value'
                     nameKey='name'
                     innerRadius={60}
                     strokeWidth={0}
                   >
-                    {MOCK_PLATFORM_BREAKDOWN.map((_, i) => (
-                      <Cell key={i} fill={MOCK_PLATFORM_BREAKDOWN[i].color} />
+                    {platformBreakdown.map((_, i) => (
+                      <Cell key={i} fill={platformBreakdown[i].color} />
                     ))}
                   </Pie>
                 </PieChart>
@@ -171,29 +197,29 @@ export default function AnalyticsViewPage() {
 
           <GlassCard className='rounded-2xl'>
             <GlassCardHeader>
-              <GlassCardTitle>Top performing posts</GlassCardTitle>
+              <GlassCardTitle>Platform Performance</GlassCardTitle>
               <GlassCardDescription>
-                By views and engagement
+                Engagement by platform
               </GlassCardDescription>
             </GlassCardHeader>
             <GlassCardContent>
               <ul className='space-y-4'>
-                {MOCK_TOP_POSTS.map((post, i) => (
+                {platformBreakdown.map((platform, i) => (
                   <li
-                    key={post.id}
+                    key={platform.name}
                     className='border-border flex items-center justify-between border-b pb-4 last:border-0 last:pb-0'
                   >
                     <div className='flex items-center gap-4'>
                       <span className='text-muted-foreground w-6 text-sm'>
                         {i + 1}
                       </span>
-                      <span className='font-medium'>{post.title}</span>
+                      <span className='font-medium'>{platform.name}</span>
                     </div>
                     <div className='text-muted-foreground text-right text-sm'>
                       <span className='text-foreground font-medium'>
-                        {post.views.toLocaleString()}
+                        {platform.value.toLocaleString()}
                       </span>{' '}
-                      views · {post.engagement}% eng.
+                      views
                     </div>
                   </li>
                 ))}

@@ -23,259 +23,358 @@ import {
   TableRow
 } from '@/components/ui/table';
 import { ScheduleModal } from './schedule-modal';
-import {
-  MOCK_CONTENT,
-  type ContentItem,
-  type ContentStatus
-} from '../constants/mock-content';
+import { CalendarView } from './calendar-view';
+import { useContents } from '@/features/repurpose/api/contents';
 import {
   IconDotsVertical,
   IconLayoutGrid,
   IconList,
-  IconSearch
+  IconSearch,
+  IconTrash,
+  IconCalendar,
+  IconEdit,
+  IconExternalLink,
+  IconPlus,
+  IconCalendarEvent
 } from '@tabler/icons-react';
 import { Icons } from '@/components/icons';
-
-const PLATFORM_ICONS: Record<string, keyof typeof Icons> = {
-  instagram: 'media',
-  twitter: 'twitter',
-  linkedin: 'user',
-  tiktok: 'media'
-};
-
-function statusVariant(s: ContentStatus): 'secondary' | 'outline' | 'default' {
-  if (s === 'published') return 'default';
-  if (s === 'scheduled') return 'secondary';
-  return 'outline';
-}
+import { motion, AnimatePresence } from 'framer-motion';
+import { format } from 'date-fns';
+import { Skeleton } from '@/components/ui/skeleton';
+import Link from 'next/link';
 
 export default function CmsViewPage() {
-  const [view, setView] = React.useState<'grid' | 'table'>('grid');
+  const [view, setView] = React.useState<'grid' | 'table' | 'calendar'>('grid');
   const [search, setSearch] = React.useState('');
-  const [statusFilter, setStatusFilter] = React.useState<ContentStatus | 'all'>(
-    'all'
-  );
+  const [statusFilter, setStatusFilter] = React.useState<string | 'all'>('all');
   const [scheduleModalOpen, setScheduleModalOpen] = React.useState(false);
-  const [scheduleItem, setScheduleItem] = React.useState<ContentItem | null>(
-    null
-  );
+  const [selectedItem, setSelectedItem] = React.useState<any>(null);
+
+  const { useGetContents, deleteContentMutation } = useContents();
+  const { data: contentsData, isLoading } = useGetContents();
+
+  const contents = contentsData?.data || [];
 
   const filtered = React.useMemo(() => {
-    return MOCK_CONTENT.filter((item) => {
+    return contents.filter((item) => {
       const matchSearch =
-        !search || item.title.toLowerCase().includes(search.toLowerCase());
+        !search ||
+        (item.title || '').toLowerCase().includes(search.toLowerCase());
       const matchStatus =
         statusFilter === 'all' || item.status === statusFilter;
       return matchSearch && matchStatus;
     });
-  }, [search, statusFilter]);
+  }, [contents, search, statusFilter]);
 
-  const openSchedule = (item: ContentItem) => {
-    setScheduleItem(item);
-    setScheduleModalOpen(true);
+  const handleDelete = (id: string) => {
+    if (confirm('Are you sure you want to delete this project?')) {
+      deleteContentMutation.mutate(id);
+    }
   };
 
   return (
     <PageContainer scrollable={true}>
-      <div className='flex flex-1 flex-col gap-6'>
-        <header className='space-y-2'>
-          <h1 className='text-3xl font-bold tracking-tight md:text-4xl'>
-            Content Management
-          </h1>
-          <p className='text-muted-foreground'>
-            Manage your content across platforms. Search, filter, and schedule
-            posts.
-          </p>
+      <div className='flex flex-1 flex-col gap-8 pb-12'>
+        <header className='flex flex-col gap-4 md:flex-row md:items-end md:justify-between'>
+          <div className='space-y-1.5'>
+            <h1 className='text-3xl font-bold tracking-tight md:text-5xl'>
+              Content <span className='text-primary'>Library</span>
+            </h1>
+            <p className='text-muted-foreground max-w-2xl text-lg'>
+              Manage your projects, monitor their status, and schedule them for
+              publication.
+            </p>
+          </div>
+          <Link href='/dashboard/repurpose'>
+            <Button className='shadow-primary/20 rounded-full px-6 shadow-lg'>
+              <IconPlus className='mr-2 h-4 w-4' /> New Project
+            </Button>
+          </Link>
         </header>
 
-        <div className='flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between'>
-          <div className='relative flex-1'>
-            <IconSearch className='text-muted-foreground absolute top-1/2 left-3 size-4 -translate-y-1/2' />
+        <div className='bg-muted/30 flex flex-col gap-4 rounded-2xl p-4 sm:flex-row sm:items-center sm:justify-between'>
+          <div className='relative max-w-md flex-1'>
+            <IconSearch className='text-muted-foreground absolute top-1/2 left-3.5 size-4 -translate-y-1/2' />
             <Input
-              placeholder='Search content...'
+              placeholder='Search your content...'
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              className='rounded-xl pl-9'
+              className='bg-background rounded-xl border-none pl-10 shadow-sm'
             />
           </div>
-          <div className='flex items-center gap-2'>
+          <div className='flex items-center gap-3'>
             <ToggleGroup
               type='single'
               value={statusFilter}
-              onValueChange={(v) =>
-                v && setStatusFilter(v as ContentStatus | 'all')
-              }
-              variant='outline'
+              onValueChange={(v) => v && setStatusFilter(v)}
+              className='bg-background rounded-xl p-1 shadow-sm'
             >
-              <ToggleGroupItem value='all' className='px-4'>
+              <ToggleGroupItem
+                value='all'
+                className='data-[state=active]:bg-primary data-[state=active]:text-primary-foreground rounded-lg px-4'
+              >
                 All
               </ToggleGroupItem>
-              <ToggleGroupItem value='draft' className='px-4'>
+              <ToggleGroupItem
+                value='draft'
+                className='data-[state=active]:bg-primary data-[state=active]:text-primary-foreground rounded-lg px-4'
+              >
                 Draft
               </ToggleGroupItem>
-              <ToggleGroupItem value='scheduled' className='px-4'>
-                Scheduled
-              </ToggleGroupItem>
-              <ToggleGroupItem value='published' className='px-4'>
-                Published
+              <ToggleGroupItem
+                value='published'
+                className='data-[state=active]:bg-primary data-[state=active]:text-primary-foreground rounded-lg px-4'
+              >
+                Live
               </ToggleGroupItem>
             </ToggleGroup>
+
+            <div className='bg-border h-8 w-px' />
+
             <ToggleGroup
               type='single'
               value={view}
-              onValueChange={(v) => v && setView(v as 'grid' | 'table')}
-              variant='outline'
+              onValueChange={(v) =>
+                v && setView(v as 'grid' | 'table' | 'calendar')
+              }
+              className='bg-background rounded-xl p-1 shadow-sm'
             >
-              <ToggleGroupItem value='grid' aria-label='Grid'>
+              <ToggleGroupItem
+                value='grid'
+                className='rounded-lg'
+                title='Grid View'
+              >
                 <IconLayoutGrid className='size-4' />
               </ToggleGroupItem>
-              <ToggleGroupItem value='table' aria-label='Table'>
+              <ToggleGroupItem
+                value='table'
+                className='rounded-lg'
+                title='Table View'
+              >
                 <IconList className='size-4' />
+              </ToggleGroupItem>
+              <ToggleGroupItem
+                value='calendar'
+                className='rounded-lg'
+                title='Calendar View'
+              >
+                <IconCalendarEvent className='size-4' />
               </ToggleGroupItem>
             </ToggleGroup>
           </div>
         </div>
 
-        {view === 'grid' && (
-          <div className='grid gap-4 sm:grid-cols-2 lg:grid-cols-3'>
-            {filtered.map((item) => (
-              <Card key={item.id} className='overflow-hidden rounded-2xl'>
-                <div className='bg-muted relative aspect-video w-full'>
-                  <Image
-                    src={item.thumbnail}
-                    alt=''
-                    fill
-                    className='object-cover'
-                    sizes='(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw'
-                  />
-                </div>
-                <CardHeader className='flex flex-row items-start justify-between gap-2 p-4'>
-                  <p className='line-clamp-2 font-medium'>{item.title}</p>
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Button
-                        variant='ghost'
-                        size='icon'
-                        className='size-8 shrink-0'
-                      >
-                        <IconDotsVertical className='size-4' />
-                      </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align='end'>
-                      <DropdownMenuItem>Edit</DropdownMenuItem>
-                      <DropdownMenuItem onClick={() => openSchedule(item)}>
-                        Schedule
-                      </DropdownMenuItem>
-                      <DropdownMenuItem className='text-destructive'>
-                        Delete
-                      </DropdownMenuItem>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-                </CardHeader>
-                <CardContent className='space-y-2 p-4 pt-0'>
-                  <div className='flex flex-wrap gap-1'>
-                    {item.platforms.map((p) => {
-                      const Icon = Icons[PLATFORM_ICONS[p] ?? 'media'];
-                      return (
-                        <Icon
-                          key={p}
-                          className='text-muted-foreground size-4'
-                        />
-                      );
-                    })}
-                  </div>
-                  <Badge
-                    variant={statusVariant(item.status)}
-                    className='capitalize'
-                  >
-                    {item.status}
-                  </Badge>
-                </CardContent>
-              </Card>
+        {isLoading ? (
+          <div className='grid gap-6 sm:grid-cols-2 lg:grid-cols-3'>
+            {[1, 2, 3, 4, 5, 6].map((i) => (
+              <Skeleton key={i} className='aspect-[4/3] rounded-3xl' />
             ))}
           </div>
-        )}
-
-        {view === 'table' && (
-          <div className='border-border rounded-2xl border'>
-            <Table>
-              <TableHeader>
-                <TableRow className='bg-muted/50'>
-                  <TableHead className='w-20'>Thumbnail</TableHead>
-                  <TableHead>Title</TableHead>
-                  <TableHead>Platforms</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead className='w-12' />
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {filtered.map((item) => (
-                  <TableRow key={item.id}>
-                    <TableCell>
-                      <div className='bg-muted relative size-12 overflow-hidden rounded-lg'>
-                        <Image
-                          src={item.thumbnail}
-                          alt=''
-                          fill
-                          className='object-cover'
-                          sizes='48px'
-                        />
+        ) : view === 'grid' ? (
+          <motion.div
+            layout
+            className='grid gap-6 sm:grid-cols-2 lg:grid-cols-3'
+          >
+            <AnimatePresence>
+              {filtered.map((item) => (
+                <motion.div
+                  key={item.id}
+                  layout
+                  initial={{ opacity: 0, scale: 0.9 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  exit={{ opacity: 0, scale: 0.9 }}
+                >
+                  <Card className='group bg-muted/20 hover:bg-muted/30 hover:shadow-primary/5 relative overflow-hidden rounded-3xl border-none transition-all hover:shadow-xl'>
+                    <div className='relative aspect-video w-full overflow-hidden bg-stone-800'>
+                      <div className='absolute inset-0 flex items-center justify-center'>
+                        <Icons.media className='h-12 w-12 text-white/10' />
                       </div>
-                    </TableCell>
-                    <TableCell className='font-medium'>{item.title}</TableCell>
-                    <TableCell>
-                      <div className='flex gap-1'>
-                        {item.platforms.map((p) => {
-                          const Icon = Icons[PLATFORM_ICONS[p] ?? 'media'];
-                          return (
-                            <Icon
-                              key={p}
-                              className='text-muted-foreground size-4'
-                            />
-                          );
-                        })}
+                      <div className='absolute top-3 left-3'>
+                        <Badge className='border-white/10 bg-black/50 text-[10px] tracking-widest text-white uppercase backdrop-blur-md'>
+                          {item.sourceType}
+                        </Badge>
                       </div>
-                    </TableCell>
-                    <TableCell>
-                      <Badge
-                        variant={statusVariant(item.status)}
-                        className='capitalize'
-                      >
-                        {item.status}
-                      </Badge>
-                    </TableCell>
-                    <TableCell>
+                    </div>
+                    <CardHeader className='flex flex-row items-start justify-between gap-2 p-5'>
+                      <div className='space-y-1'>
+                        <h3 className='line-clamp-1 text-lg font-bold'>
+                          {item.title || 'Untitled Project'}
+                        </h3>
+                        <p className='text-muted-foreground text-xs'>
+                          {format(new Date(item.createdAt), 'MMM dd, yyyy')}
+                        </p>
+                      </div>
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>
                           <Button
                             variant='ghost'
                             size='icon'
-                            className='size-8'
+                            className='hover:bg-background size-9 rounded-full shadow-sm'
                           >
                             <IconDotsVertical className='size-4' />
                           </Button>
                         </DropdownMenuTrigger>
-                        <DropdownMenuContent align='end'>
-                          <DropdownMenuItem>Edit</DropdownMenuItem>
-                          <DropdownMenuItem onClick={() => openSchedule(item)}>
-                            Schedule
+                        <DropdownMenuContent
+                          align='end'
+                          className='min-w-[160px] rounded-xl'
+                        >
+                          <DropdownMenuItem className='gap-2'>
+                            <IconEdit className='size-4' /> Edit Project
                           </DropdownMenuItem>
-                          <DropdownMenuItem className='text-destructive'>
-                            Delete
+                          <DropdownMenuItem
+                            className='gap-2'
+                            onClick={() => {
+                              setSelectedItem(item);
+                              setScheduleModalOpen(true);
+                            }}
+                          >
+                            <IconCalendar className='size-4' /> Schedule
+                          </DropdownMenuItem>
+                          <DropdownMenuItem
+                            className='text-destructive gap-2'
+                            onClick={() => handleDelete(item.id)}
+                          >
+                            <IconTrash className='size-4' /> Delete
                           </DropdownMenuItem>
                         </DropdownMenuContent>
                       </DropdownMenu>
+                    </CardHeader>
+                    <CardContent className='flex items-center justify-between px-5 pt-0 pb-5'>
+                      <Badge
+                        variant={
+                          item.status === 'published' ? 'default' : 'outline'
+                        }
+                        className='rounded-full px-3 font-semibold capitalize'
+                      >
+                        {item.status}
+                      </Badge>
+                      <div className='flex -space-x-2'>
+                        {/* Placeholder for platform icons */}
+                        <div className='bg-background border-muted flex size-7 items-center justify-center rounded-full border-2'>
+                          <Icons.twitter className='text-muted-foreground size-3' />
+                        </div>
+                        <div className='bg-background border-muted flex size-7 items-center justify-center rounded-full border-2'>
+                          <Icons.user className='text-muted-foreground size-3' />
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                </motion.div>
+              ))}
+            </AnimatePresence>
+          </motion.div>
+        ) : (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            className='bg-background overflow-hidden rounded-3xl border shadow-sm'
+          >
+            <Table>
+              <TableHeader>
+                <TableRow className='bg-muted/30 border-b hover:bg-transparent'>
+                  <TableHead className='px-6 py-4'>Project Name</TableHead>
+                  <TableHead>Type</TableHead>
+                  <TableHead>Created</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead className='px-6 text-right'>Actions</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {filtered.map((item) => (
+                  <TableRow
+                    key={item.id}
+                    className='hover:bg-muted/10 group transition-colors'
+                  >
+                    <TableCell className='px-6 py-4'>
+                      <div className='flex items-center gap-3'>
+                        <div className='bg-muted flex size-10 shrink-0 items-center justify-center rounded-xl'>
+                          <Icons.media className='text-muted-foreground size-5' />
+                        </div>
+                        <span className='font-bold'>
+                          {item.title || 'Untitled'}
+                        </span>
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      <Badge
+                        variant='secondary'
+                        className='rounded-full text-[10px] tracking-wider uppercase'
+                      >
+                        {item.sourceType}
+                      </Badge>
+                    </TableCell>
+                    <TableCell className='text-muted-foreground text-sm'>
+                      {format(new Date(item.createdAt), 'MMM dd, yyyy')}
+                    </TableCell>
+                    <TableCell>
+                      <Badge
+                        variant={
+                          item.status === 'published' ? 'default' : 'outline'
+                        }
+                        className='rounded-full capitalize'
+                      >
+                        {item.status}
+                      </Badge>
+                    </TableCell>
+                    <TableCell className='px-6 text-right'>
+                      <div className='flex justify-end gap-1 opacity-0 transition-opacity group-hover:opacity-100'>
+                        <Button
+                          variant='ghost'
+                          size='icon'
+                          className='h-8 w-8 rounded-full'
+                          title='Edit'
+                        >
+                          <IconEdit className='size-4' />
+                        </Button>
+                        <Button
+                          variant='ghost'
+                          size='icon'
+                          className='text-destructive h-8 w-8 rounded-full'
+                          onClick={() => handleDelete(item.id)}
+                          title='Delete'
+                        >
+                          <IconTrash className='size-4' />
+                        </Button>
+                      </div>
                     </TableCell>
                   </TableRow>
                 ))}
               </TableBody>
             </Table>
-          </div>
+          </motion.div>
         )}
 
-        {filtered.length === 0 && (
-          <div className='text-muted-foreground border-border flex flex-1 items-center justify-center rounded-2xl border border-dashed py-16 text-sm'>
-            No content found.
+        {view === 'calendar' && (
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+          >
+            <CalendarView />
+          </motion.div>
+        )}
+
+        {!isLoading && filtered.length === 0 && (
+          <div className='bg-muted/10 flex flex-col items-center justify-center space-y-4 rounded-3xl border-2 border-dashed py-24 text-center'>
+            <div className='bg-background rounded-full p-6 shadow-sm'>
+              <IconSearch className='text-muted-foreground size-12' />
+            </div>
+            <div className='space-y-1'>
+              <h3 className='text-xl font-bold'>No results found</h3>
+              <p className='text-muted-foreground max-w-xs'>
+                Try adjusting your search or filters to find what you&apos;re
+                looking for.
+              </p>
+            </div>
+            <Button
+              variant='outline'
+              onClick={() => {
+                setSearch('');
+                setStatusFilter('all');
+              }}
+              className='rounded-full'
+            >
+              Clear all filters
+            </Button>
           </div>
         )}
       </div>
@@ -283,10 +382,11 @@ export default function CmsViewPage() {
       <ScheduleModal
         open={scheduleModalOpen}
         onOpenChange={setScheduleModalOpen}
+        contentId={selectedItem?.id}
         title={
-          scheduleItem ? `Schedule: ${scheduleItem.title}` : 'Schedule post'
+          selectedItem ? `Schedule: ${selectedItem.title}` : 'Schedule post'
         }
-        onConfirm={() => setScheduleItem(null)}
+        onConfirm={() => setSelectedItem(null)}
       />
     </PageContainer>
   );

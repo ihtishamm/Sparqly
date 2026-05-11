@@ -60,21 +60,35 @@ const tenants = [
   { id: '3', name: 'Gamma Ltd' }
 ];
 
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { format } from 'date-fns';
+import { useSubscription } from '@/features/subscription/api/subscription';
+import { Progress } from '../ui/progress';
+
 export default function AppSidebar() {
   const pathname = usePathname();
   const { isOpen } = useMediaQuery();
   const { user } = useAuthStore();
   const { handleLogout } = useAuthService();
+  const { useGetWallet } = useSubscription();
+  const { data: wallet, isLoading: isWalletLoading } = useGetWallet();
   const router = useRouter();
+
   const handleSwitchTenant = (_tenantId: string) => {
     // Tenant switching functionality would be implemented here
   };
 
   const activeTenant = tenants[0];
 
-  React.useEffect(() => {
-    // Side effects based on sidebar state changes
-  }, [isOpen]);
+  const usagePercent = wallet
+    ? (wallet.usageCount /
+        (wallet.planCredits +
+          wallet.rolledOverCredits +
+          wallet.extraCredits +
+          wallet.proratedCredits)) *
+      100
+    : 0;
 
   return (
     <Sidebar collapsible='icon' data-tour='sidebar'>
@@ -144,6 +158,39 @@ export default function AppSidebar() {
               );
             })}
           </SidebarMenu>
+        </SidebarGroup>
+
+        <SidebarGroup className='mt-auto border-t p-4'>
+          <div className='bg-primary/5 border-primary/10 flex flex-col gap-3 rounded-2xl border p-4'>
+            <div className='flex items-center justify-between'>
+              <span className='text-muted-foreground text-[10px] font-bold tracking-widest uppercase'>
+                Credits
+              </span>
+              <Badge
+                variant='outline'
+                className='bg-background h-5 rounded-full px-2 text-[10px] font-bold'
+              >
+                {isWalletLoading ? '...' : wallet?.balance || 0} left
+              </Badge>
+            </div>
+            <Progress value={usagePercent} className='h-1.5' />
+            <p className='text-muted-foreground text-[9px] leading-tight'>
+              Your plan renews on{' '}
+              <span className='text-foreground font-bold'>
+                {wallet?.currentPeriodEnd
+                  ? format(new Date(wallet.currentPeriodEnd), 'MMM dd')
+                  : '...'}
+              </span>
+            </p>
+            <Button
+              size='sm'
+              variant='default'
+              className='h-7 w-full rounded-lg text-[10px] font-bold'
+              onClick={() => router.push('/dashboard/subscription')}
+            >
+              Upgrade Plan
+            </Button>
+          </div>
         </SidebarGroup>
       </SidebarContent>
       <SidebarFooter>

@@ -52,7 +52,8 @@ export interface Content {
   id: string;
   title: string;
   description?: string;
-  type: string;
+  sourceType: string;
+  status: string;
   url?: string;
   createdAt: string;
 }

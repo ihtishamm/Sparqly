@@ -19,8 +19,12 @@ export function useAiJobs() {
   };
 
   const createJobMutation = useMutation({
-    mutationFn: ({ jobType, input }: { jobType: string; input: any }) =>
-      post<AiJob>('/v1/ai-jobs', { jobType, input }),
+    mutationFn: (data: {
+      jobType: string;
+      input: any;
+      user: { id: string };
+      status: string;
+    }) => post<AiJob>('/v1/ai-jobs', data),
     meta: {
       errorMessage: 'Failed to start AI job'
     }

@@ -7,34 +7,34 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { MOCK_CONNECTIONS } from '../constants/mock-connections';
 import { Icons } from '@/components/icons';
+import { usePlatformAccounts } from '../api/platform-accounts';
+import { toast } from 'sonner';
 
 const PLATFORM_ICONS: Record<string, keyof typeof Icons> = {
   instagram: 'media',
   twitter: 'twitter',
   linkedin: 'user',
-  tiktok: 'media'
+  tiktok: 'media',
+  youtube: 'media'
 };
 
 export default function ConnectionsViewPage() {
-  const [connections, setConnections] = React.useState(MOCK_CONNECTIONS);
+  const { useGetAccounts, connectMutation, disconnectMutation } =
+    usePlatformAccounts();
+  const { data, isLoading } = useGetAccounts();
+  const realAccounts = data?.data || [];
 
-  const toggleConnection = (id: string) => {
-    setConnections((prev) =>
-      prev.map((c) =>
-        c.id === id
-          ? {
-              ...c,
-              status: c.status === 'connected' ? 'disconnected' : 'connected',
-              account:
-                c.status === 'connected'
-                  ? undefined
-                  : c.id === 'instagram'
-                    ? '@sparqly_app'
-                    : 'sparqly_app'
-            }
-          : c
-      )
-    );
+  const handleConnect = async (platformId: string) => {
+    const platform = platformId === 'youtube-shorts' ? 'youtube' : platformId;
+    connectMutation.mutate(platform);
+  };
+
+  const handleDisconnect = async (id: string) => {
+    disconnectMutation.mutate(id, {
+      onSuccess: () => {
+        toast.success('Account disconnected');
+      }
+    });
   };
 
   return (
@@ -50,8 +50,15 @@ export default function ConnectionsViewPage() {
         </header>
 
         <div className='space-y-4'>
-          {connections.map((platform) => {
-            const Icon = Icons[PLATFORM_ICONS[platform.icon] ?? 'media'];
+          {MOCK_CONNECTIONS.map((platform) => {
+            const Icon = Icons[PLATFORM_ICONS[platform.id] ?? 'media'];
+            const connectedAccount = realAccounts.find(
+              (acc) =>
+                acc.platform ===
+                (platform.id === 'youtube-shorts' ? 'youtube' : platform.id)
+            );
+            const isConnected = !!connectedAccount;
+
             return (
               <Card key={platform.id} className='rounded-2xl'>
                 <CardHeader className='flex flex-row items-start justify-between gap-4'>
@@ -64,36 +71,33 @@ export default function ConnectionsViewPage() {
                       <p className='text-muted-foreground mt-1 text-sm'>
                         {platform.description}
                       </p>
-                      {platform.account && platform.status === 'connected' && (
-                        <p className='text-muted-foreground mt-2 text-sm'>
-                          Connected as {platform.account}
+                      {isConnected && (
+                        <p className='text-muted-foreground mt-2 text-sm font-medium text-green-500'>
+                          Connected as {connectedAccount.accountName}
                         </p>
                       )}
                     </div>
                   </div>
                   <div className='flex shrink-0 items-center gap-2'>
-                    <Badge
-                      variant={
-                        platform.status === 'connected'
-                          ? 'default'
-                          : 'secondary'
-                      }
-                    >
-                      {platform.status === 'connected'
-                        ? 'Connected'
-                        : 'Not connected'}
+                    <Badge variant={isConnected ? 'default' : 'secondary'}>
+                      {isConnected ? 'Connected' : 'Not connected'}
                     </Badge>
                     <Button
-                      variant={
-                        platform.status === 'connected' ? 'outline' : 'default'
-                      }
+                      variant={isConnected ? 'outline' : 'default'}
                       size='sm'
                       className='rounded-lg'
-                      onClick={() => toggleConnection(platform.id)}
+                      onClick={() =>
+                        isConnected
+                          ? handleDisconnect(connectedAccount.id)
+                          : handleConnect(platform.id)
+                      }
+                      disabled={
+                        isLoading ||
+                        connectMutation.isPending ||
+                        disconnectMutation.isPending
+                      }
                     >
-                      {platform.status === 'connected'
-                        ? 'Disconnect'
-                        : 'Connect'}
+                      {isConnected ? 'Disconnect' : 'Connect'}
                     </Button>
                   </div>
                 </CardHeader>

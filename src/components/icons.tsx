@@ -29,6 +29,7 @@ import {
   IconSun,
   IconTrash,
   IconBrandTwitter,
+  IconBrandGoogle,
   IconUser,
   IconUserCircle,
   IconUserEdit,
@@ -76,6 +77,7 @@ export const Icons = {
   moon: IconMoon,
   laptop: IconDeviceLaptop,
   github: IconBrandGithub,
+  google: IconBrandGoogle,
   twitter: IconBrandTwitter,
   check: IconCheck
 };

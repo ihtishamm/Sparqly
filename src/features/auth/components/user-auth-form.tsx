@@ -1,4 +1,5 @@
 'use client';
+
 import { Button } from '@/components/ui/button';
 import {
   Form,
@@ -15,10 +16,13 @@ import { useTransition } from 'react';
 import { useForm } from 'react-hook-form';
 import { toast } from 'sonner';
 import * as z from 'zod';
-import GithubSignInButton from './github-auth-button';
+import GoogleSignInButton from './google-auth-button';
+
+import { useAuthService } from '../api/auth-service';
 
 const formSchema = z.object({
-  email: z.string().email({ message: 'Enter a valid email address' })
+  email: z.string().email({ message: 'Enter a valid email address' }),
+  password: z.string().min(1, { message: 'Password is required' })
 });
 
 type UserFormValue = z.infer<typeof formSchema>;
@@ -26,9 +30,11 @@ type UserFormValue = z.infer<typeof formSchema>;
 export default function UserAuthForm() {
   const searchParams = useSearchParams();
   const callbackUrl = searchParams.get('callbackUrl');
+  const { loginMutation } = useAuthService();
   const [loading, startTransition] = useTransition();
   const defaultValues = {
-    email: 'demo@gmail.com'
+    email: '',
+    password: ''
   };
   const form = useForm<UserFormValue>({
     resolver: zodResolver(formSchema),
@@ -36,10 +42,7 @@ export default function UserAuthForm() {
   });
 
   const onSubmit = async (data: UserFormValue) => {
-    startTransition(() => {
-      console.log('continue with email clicked');
-      toast.success('Signed In Successfully!');
-    });
+    loginMutation.mutate(data);
   };
 
   return (
@@ -59,7 +62,26 @@ export default function UserAuthForm() {
                   <Input
                     type='email'
                     placeholder='Enter your email...'
-                    disabled={loading}
+                    disabled={loginMutation.isPending}
+                    {...field}
+                  />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+
+          <FormField
+            control={form.control}
+            name='password'
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Password</FormLabel>
+                <FormControl>
+                  <Input
+                    type='password'
+                    placeholder='Enter your password...'
+                    disabled={loginMutation.isPending}
                     {...field}
                   />
                 </FormControl>
@@ -69,11 +91,11 @@ export default function UserAuthForm() {
           />
 
           <Button
-            disabled={loading}
+            disabled={loginMutation.isPending}
             className='mt-2 ml-auto w-full'
             type='submit'
           >
-            Continue With Email
+            Sign In
           </Button>
         </form>
       </Form>
@@ -87,7 +109,7 @@ export default function UserAuthForm() {
           </span>
         </div>
       </div>
-      <GithubSignInButton />
+      <GoogleSignInButton />
     </>
   );
 }

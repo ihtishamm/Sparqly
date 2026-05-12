@@ -35,13 +35,31 @@ import {
   IconEdit,
   IconExternalLink,
   IconPlus,
-  IconCalendarEvent
+  IconCalendarEvent,
+  IconPlayerPlay
 } from '@tabler/icons-react';
 import { Icons } from '@/components/icons';
 import { motion, AnimatePresence } from 'framer-motion';
 import { format } from 'date-fns';
 import { Skeleton } from '@/components/ui/skeleton';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle
+} from '@/components/ui/dialog';
 import Link from 'next/link';
+
+const getYouTubeId = (url: string) => {
+  const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|&v=)([^#&?]*).*/;
+  const match = url?.match(regExp);
+  return match && match[2].length === 11 ? match[2] : null;
+};
+
+const getYouTubeThumbnail = (url: string) => {
+  const id = getYouTubeId(url);
+  return id ? `https://img.youtube.com/vi/${id}/maxresdefault.jpg` : null;
+};
 
 export default function CmsViewPage() {
   const [view, setView] = React.useState<'grid' | 'table' | 'calendar'>('grid');
@@ -49,11 +67,24 @@ export default function CmsViewPage() {
   const [statusFilter, setStatusFilter] = React.useState<string | 'all'>('all');
   const [scheduleModalOpen, setScheduleModalOpen] = React.useState(false);
   const [selectedItem, setSelectedItem] = React.useState<any>(null);
+  const [previewItem, setPreviewItem] = React.useState<any>(null);
 
-  const { useGetContents, deleteContentMutation } = useContents();
-  const { data: contentsData, isLoading } = useGetContents();
+  const { useGetContentAssets, deleteAssetMutation } = useContents();
+  const { data: assetsData, isLoading } = useGetContentAssets();
 
-  const contents = contentsData?.data || [];
+  const contents = React.useMemo(() => {
+    return (assetsData?.data || []).map((asset: any) => ({
+      ...asset,
+      id: asset.id,
+      title: asset.metadata?.title || 'Untitled Clip',
+      sourceType: asset.type,
+      status: 'saved',
+      sourceUrl: asset.fileUrl,
+      originalSourceUrl:
+        asset.content?.metadata?.sourceUrl || asset.content?.title,
+      createdAt: asset.createdAt
+    }));
+  }, [assetsData]);
 
   const filtered = React.useMemo(() => {
     return contents.filter((item) => {
@@ -67,8 +98,8 @@ export default function CmsViewPage() {
   }, [contents, search, statusFilter]);
 
   const handleDelete = (id: string) => {
-    if (confirm('Are you sure you want to delete this project?')) {
-      deleteContentMutation.mutate(id);
+    if (confirm('Are you sure you want to delete this clip?')) {
+      deleteAssetMutation.mutate(id);
     }
   };
 
@@ -184,20 +215,50 @@ export default function CmsViewPage() {
                   animate={{ opacity: 1, scale: 1 }}
                   exit={{ opacity: 0, scale: 0.9 }}
                 >
-                  <Card className='group bg-muted/20 hover:bg-muted/30 hover:shadow-primary/5 relative overflow-hidden rounded-3xl border-none transition-all hover:shadow-xl'>
-                    <div className='relative aspect-video w-full overflow-hidden bg-stone-800'>
-                      <div className='absolute inset-0 flex items-center justify-center'>
-                        <Icons.media className='h-12 w-12 text-white/10' />
+                  <Card className='group border-primary/5 hover:border-primary/20 relative overflow-hidden rounded-3xl border transition-all hover:shadow-2xl'>
+                    <div
+                      className='relative aspect-video w-full cursor-pointer overflow-hidden bg-stone-900'
+                      onClick={() => setPreviewItem(item)}
+                    >
+                      {getYouTubeThumbnail(item.originalSourceUrl) ? (
+                        <Image
+                          src={getYouTubeThumbnail(item.originalSourceUrl)!}
+                          alt={item.title || ''}
+                          fill
+                          className='object-cover opacity-60 transition-opacity group-hover:opacity-100'
+                        />
+                      ) : (
+                        <div className='absolute inset-0 flex items-center justify-center'>
+                          <Icons.media className='h-12 w-12 text-white/10' />
+                        </div>
+                      )}
+
+                      <div className='absolute inset-0 flex items-center justify-center opacity-0 transition-opacity group-hover:opacity-100'>
+                        <div className='bg-primary/90 flex h-14 w-14 items-center justify-center rounded-full shadow-2xl transition-transform hover:scale-110'>
+                          <IconPlayerPlay className='h-7 w-7 fill-current text-white' />
+                        </div>
                       </div>
+
                       <div className='absolute top-3 left-3'>
                         <Badge className='border-white/10 bg-black/50 text-[10px] tracking-widest text-white uppercase backdrop-blur-md'>
                           {item.sourceType}
                         </Badge>
                       </div>
+
+                      {item.assets && item.assets.length > 0 && (
+                        <div className='absolute bottom-3 left-3'>
+                          <Badge className='border-none bg-green-500/80 text-[10px] text-white backdrop-blur-md'>
+                            {item.assets.length} Clips Generated
+                          </Badge>
+                        </div>
+                      )}
                     </div>
                     <CardHeader className='flex flex-row items-start justify-between gap-2 p-5'>
                       <div className='space-y-1'>
-                        <h3 className='line-clamp-1 text-lg font-bold'>
+                        <h3
+                          className='hover:text-primary line-clamp-1 cursor-pointer text-lg font-bold transition-colors'
+                          onClick={() => setPreviewItem(item)}
+                        >
                           {item.title || 'Untitled Project'}
                         </h3>
                         <p className='text-muted-foreground text-xs'>
@@ -388,6 +449,78 @@ export default function CmsViewPage() {
         }
         onConfirm={() => setSelectedItem(null)}
       />
+
+      <Dialog
+        open={!!previewItem}
+        onOpenChange={(open) => !open && setPreviewItem(null)}
+      >
+        <DialogContent className='max-w-4xl overflow-hidden rounded-3xl p-0'>
+          <DialogHeader className='p-6 pb-0'>
+            <DialogTitle className='flex items-center justify-between gap-4 pr-8'>
+              <span className='line-clamp-1'>{previewItem?.title}</span>
+              <Badge variant='secondary' className='rounded-full'>
+                {previewItem?.status}
+              </Badge>
+            </DialogTitle>
+          </DialogHeader>
+          <div className='space-y-6 p-6'>
+            <div className='bg-muted relative aspect-video overflow-hidden rounded-2xl'>
+              {previewItem && (
+                <>
+                  {previewItem.fileUrl ? (
+                    <video
+                      src={previewItem.fileUrl}
+                      controls
+                      autoPlay
+                      className='h-full w-full object-contain'
+                    />
+                  ) : (
+                    <div className='flex h-full flex-col items-center justify-center gap-4'>
+                      <Icons.media className='text-muted-foreground/20 h-16 w-16' />
+                      <p className='text-muted-foreground'>
+                        No playable media found.
+                      </p>
+                    </div>
+                  )}
+                </>
+              )}
+            </div>
+
+            {previewItem?.assets && previewItem.assets.length > 0 && (
+              <div className='space-y-4'>
+                <h4 className='text-sm font-semibold tracking-wider uppercase'>
+                  Generated Assets ({previewItem.assets.length})
+                </h4>
+                <div className='grid grid-cols-2 gap-4 sm:grid-cols-3'>
+                  {previewItem.assets.map((asset: any) => (
+                    <div
+                      key={asset.id}
+                      className='group bg-muted hover:ring-primary relative aspect-video cursor-pointer overflow-hidden rounded-xl transition-all hover:ring-2'
+                      onClick={() => {
+                        const video = document.querySelector(
+                          'video'
+                        ) as HTMLVideoElement;
+                        if (video) {
+                          video.src = asset.fileUrl;
+                          video.play();
+                        }
+                      }}
+                    >
+                      <video
+                        src={asset.fileUrl}
+                        className='h-full w-full object-cover opacity-60 group-hover:opacity-100'
+                      />
+                      <div className='absolute inset-0 flex items-center justify-center opacity-0 transition-opacity group-hover:opacity-100'>
+                        <IconPlayerPlay className='h-6 w-6 text-white' />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
     </PageContainer>
   );
 }

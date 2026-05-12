@@ -2,6 +2,17 @@ import { Content, InfinityPaginationResponse } from '@/types/api';
 import { useApi } from '@/hooks/use-api';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 
+export interface CreateContentData {
+  title: string;
+  status?: string;
+  sourceType?: string;
+  sourceUrl?: string;
+  type?: string;
+  description?: string;
+  metadata?: any;
+  user?: { id: number | string };
+}
+
 export function useContents() {
   const { get, post, remove } = useApi();
   const queryClient = useQueryClient();
@@ -17,15 +28,9 @@ export function useContents() {
     });
   };
 
-  const createContentMutation = useMutation({
-    mutationFn: (data: {
-      title: string;
-      status: string;
-      sourceType: string;
-      description?: string;
-      metadata?: any;
-      user: { id: number | string };
-    }) => post<Content>('/v1/contents', data),
+  const createContentMutation = useMutation<Content, Error, CreateContentData>({
+    mutationFn: (data: CreateContentData) =>
+      post<Content>('/v1/contents', data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['contents'] });
     },
@@ -41,6 +46,17 @@ export function useContents() {
     }
   });
 
+  const useGetContentAssets = (page = 1, limit = 10) => {
+    return useQuery({
+      queryKey: ['content-assets', page, limit],
+      queryFn: () =>
+        get<InfinityPaginationResponse<any>>('/v1/content-assets', {
+          page,
+          limit
+        })
+    });
+  };
+
   const createAssetMutation = useMutation({
     mutationFn: (data: {
       content: { id: string };
@@ -48,8 +64,10 @@ export function useContents() {
       storageProvider: string;
       fileUrl: string;
       mimeType?: string;
+      metadata?: any;
     }) => post<any>('/v1/content-assets', data),
     onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['content-assets'] });
       queryClient.invalidateQueries({ queryKey: ['contents'] });
     },
     meta: {
@@ -57,10 +75,19 @@ export function useContents() {
     }
   });
 
+  const deleteAssetMutation = useMutation({
+    mutationFn: (id: string) => remove(`/v1/content-assets/${id}`),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['content-assets'] });
+    }
+  });
+
   return {
     useGetContents,
+    useGetContentAssets,
     createContentMutation,
     deleteContentMutation,
-    createAssetMutation
+    createAssetMutation,
+    deleteAssetMutation
   };
 }

@@ -27,6 +27,7 @@ import {
   CardTitle
 } from '@/components/ui/card';
 import { BlogPreview } from './blog-preview';
+import { ClipsPreview } from './clips-preview';
 import { Input } from '@/components/ui/input';
 import { Progress } from '@/components/ui/progress';
 import { Badge } from '@/components/ui/badge';
@@ -107,6 +108,7 @@ export function RepurposeFlow() {
     'short-clips'
   ]);
   const [activeJobId, setActiveJobId] = React.useState<string | null>(null);
+  const [activeTab, setActiveTab] = React.useState<string>('');
 
   const { user } = useAuthStore();
   const { createContentMutation } = useContents();
@@ -123,6 +125,7 @@ export function RepurposeFlow() {
   React.useEffect(() => {
     if (activeJob?.status === 'completed') {
       setStage('result');
+      setActiveTab(selectedTypes[0] || '');
       toast.success('AI Job completed successfully!');
     } else if (activeJob?.status === 'failed') {
       toast.error('AI Job failed: ' + activeJob.errorMessage);
@@ -147,8 +150,8 @@ export function RepurposeFlow() {
       // 2. Start AI Job
       const job = await createJobMutation.mutateAsync({
         jobType: 'repurpose',
+        content: { id: content.id },
         input: {
-          contentId: content.id,
           targetTypes: selectedTypes,
           tone: 'engaging'
         },
@@ -382,9 +385,15 @@ export function RepurposeFlow() {
               </div>
             </div>
 
-            <div className='grid gap-8 lg:grid-cols-[1fr_300px]'>
+            <div
+              className={`grid gap-8 ${activeTab === 'short-clips' ? 'grid-cols-1' : 'lg:grid-cols-[1fr_300px]'}`}
+            >
               <div className='space-y-6'>
-                <Tabs defaultValue={selectedTypes[0]} className='w-full'>
+                <Tabs
+                  value={activeTab}
+                  onValueChange={setActiveTab}
+                  className='w-full'
+                >
                   <TabsList className='bg-muted/50 mb-6 inline-flex gap-2 rounded-2xl p-1'>
                     {selectedTypes.map((typeId) => (
                       <TabsTrigger
@@ -426,6 +435,13 @@ export function RepurposeFlow() {
                             </CardContent>
                           </Card>
                         </div>
+                      ) : typeId === 'short-clips' ? (
+                        <ClipsPreview
+                          clips={
+                            activeJob?.output?.['short-clips-variants'] || []
+                          }
+                          contentId={activeJob?.content?.id}
+                        />
                       ) : (
                         <Card className='bg-muted/20 overflow-hidden border-none'>
                           <div className='bg-primary/5 border-b px-6 py-4'>
@@ -455,69 +471,71 @@ export function RepurposeFlow() {
                 </Tabs>
               </div>
 
-              <aside className='space-y-6'>
-                <Card className='border-primary/10 rounded-2xl'>
-                  <CardHeader>
-                    <CardTitle className='text-lg'>AI Assistant</CardTitle>
-                    <CardDescription>
-                      Refine your results with one click
-                    </CardDescription>
-                  </CardHeader>
-                  <CardContent className='grid gap-2'>
-                    <Button
-                      variant='outline'
-                      className='justify-start rounded-xl'
-                      size='sm'
-                    >
-                      <IconSparkles className='mr-2 h-4 w-4 text-yellow-500' />{' '}
-                      Make it shorter
-                    </Button>
-                    <Button
-                      variant='outline'
-                      className='justify-start rounded-xl'
-                      size='sm'
-                    >
-                      <IconSparkles className='mr-2 h-4 w-4 text-blue-500' />{' '}
-                      Add more emojis
-                    </Button>
-                    <Button
-                      variant='outline'
-                      className='justify-start rounded-xl'
-                      size='sm'
-                    >
-                      <IconSparkles className='mr-2 h-4 w-4 text-green-500' />{' '}
-                      Professional tone
-                    </Button>
-                    <Button
-                      variant='outline'
-                      className='justify-start rounded-xl'
-                      size='sm'
-                    >
-                      <IconSparkles className='mr-2 h-4 w-4 text-purple-500' />{' '}
-                      Change to listicle
-                    </Button>
-                  </CardContent>
-                </Card>
+              {activeTab !== 'short-clips' && (
+                <aside className='space-y-6'>
+                  <Card className='border-primary/10 rounded-2xl'>
+                    <CardHeader>
+                      <CardTitle className='text-lg'>AI Assistant</CardTitle>
+                      <CardDescription>
+                        Refine your results with one click
+                      </CardDescription>
+                    </CardHeader>
+                    <CardContent className='grid gap-2'>
+                      <Button
+                        variant='outline'
+                        className='justify-start rounded-xl'
+                        size='sm'
+                      >
+                        <IconSparkles className='mr-2 h-4 w-4 text-yellow-500' />{' '}
+                        Make it shorter
+                      </Button>
+                      <Button
+                        variant='outline'
+                        className='justify-start rounded-xl'
+                        size='sm'
+                      >
+                        <IconSparkles className='mr-2 h-4 w-4 text-blue-500' />{' '}
+                        Add more emojis
+                      </Button>
+                      <Button
+                        variant='outline'
+                        className='justify-start rounded-xl'
+                        size='sm'
+                      >
+                        <IconSparkles className='mr-2 h-4 w-4 text-green-500' />{' '}
+                        Professional tone
+                      </Button>
+                      <Button
+                        variant='outline'
+                        className='justify-start rounded-xl'
+                        size='sm'
+                      >
+                        <IconSparkles className='mr-2 h-4 w-4 text-purple-500' />{' '}
+                        Change to listicle
+                      </Button>
+                    </CardContent>
+                  </Card>
 
-                <Card className='bg-primary text-primary-foreground rounded-2xl'>
-                  <CardHeader>
-                    <CardTitle className='text-lg'>Publish Now</CardTitle>
-                    <CardDescription className='text-primary-foreground/70'>
-                      Directly post to your socials
-                    </CardDescription>
-                  </CardHeader>
-                  <CardContent className='grid gap-2'>
-                    <Button variant='secondary' className='w-full rounded-xl'>
-                      <IconBrandLinkedin className='mr-2 h-4 w-4' /> Post to
-                      LinkedIn
-                    </Button>
-                    <Button variant='secondary' className='w-full rounded-xl'>
-                      <IconBrandTwitter className='mr-2 h-4 w-4' /> Share on
-                      Twitter
-                    </Button>
-                  </CardContent>
-                </Card>
-              </aside>
+                  <Card className='bg-primary text-primary-foreground rounded-2xl'>
+                    <CardHeader>
+                      <CardTitle className='text-lg'>Publish Now</CardTitle>
+                      <CardDescription className='text-primary-foreground/70'>
+                        Directly post to your socials
+                      </CardDescription>
+                    </CardHeader>
+                    <CardContent className='grid gap-2'>
+                      <Button variant='secondary' className='w-full rounded-xl'>
+                        <IconBrandLinkedin className='mr-2 h-4 w-4' /> Post to
+                        LinkedIn
+                      </Button>
+                      <Button variant='secondary' className='w-full rounded-xl'>
+                        <IconBrandTwitter className='mr-2 h-4 w-4' /> Share on
+                        Twitter
+                      </Button>
+                    </CardContent>
+                  </Card>
+                </aside>
+              )}
             </div>
           </motion.div>
         );

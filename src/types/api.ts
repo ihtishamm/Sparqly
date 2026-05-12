@@ -55,6 +55,18 @@ export interface Content {
   sourceType: string;
   status: string;
   url?: string;
+  metadata?: any;
+  assets?: ContentAsset[];
+  createdAt: string;
+}
+
+export interface ContentAsset {
+  id: string;
+  type: string;
+  storageProvider: string;
+  fileUrl: string;
+  mimeType?: string;
+  metadata?: any;
   createdAt: string;
 }
 
@@ -74,6 +86,7 @@ export interface AiJob {
   status: 'pending' | 'queued' | 'processing' | 'completed' | 'failed';
   input?: any;
   output?: any;
+  content?: { id: string };
   errorMessage?: string;
   createdAt: string;
   completedAt?: string;

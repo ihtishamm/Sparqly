@@ -2,6 +2,14 @@ import { AiJob } from '@/types/api';
 import { useApi } from '@/hooks/use-api';
 import { useQuery, useMutation } from '@tanstack/react-query';
 
+export interface CreateJobData {
+  jobType: string;
+  content?: { id: string };
+  input: any;
+  user: { id: string };
+  status: string;
+}
+
 export function useAiJobs() {
   const { get, post } = useApi();
 
@@ -22,13 +30,8 @@ export function useAiJobs() {
     });
   };
 
-  const createJobMutation = useMutation({
-    mutationFn: (data: {
-      jobType: string;
-      input: any;
-      user: { id: string };
-      status: string;
-    }) => post<AiJob>('/v1/ai-jobs', data),
+  const createJobMutation = useMutation<AiJob, Error, CreateJobData>({
+    mutationFn: (data: CreateJobData) => post<AiJob>('/v1/ai-jobs', data),
     meta: {
       errorMessage: 'Failed to start AI job'
     }

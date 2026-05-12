@@ -11,10 +11,14 @@ export function useAiJobs() {
       queryFn: () => get<AiJob>(`/v1/ai-jobs/${id}`),
       enabled: !!id,
       refetchInterval: (query) => {
-        // Poll every 2 seconds if job is not completed/failed
         const status = query.state.data?.status;
-        return status === 'queued' || status === 'processing' ? 2000 : false;
-      }
+        return status === 'completed' || status === 'failed' ? false : 2000;
+      },
+      refetchIntervalInBackground: true,
+      staleTime: 0,
+      gcTime: 0,
+      refetchOnMount: 'always',
+      refetchOnReconnect: 'always'
     });
   };
 
@@ -30,5 +34,12 @@ export function useAiJobs() {
     }
   });
 
-  return { useGetJob, createJobMutation };
+  const useGetJobs = (params?: any) => {
+    return useQuery({
+      queryKey: ['ai-jobs', params],
+      queryFn: () => get<any>('/v1/ai-jobs', { params })
+    });
+  };
+
+  return { useGetJob, useGetJobs, createJobMutation };
 }

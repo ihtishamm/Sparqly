@@ -29,9 +29,16 @@ export default function SubscriptionViewPage() {
   const { data: wallet, isLoading: isWalletLoading } = useGetWallet();
   const { data: plans, isLoading: isPlansLoading } = useGetPlans();
 
-  const handleSelectPlan = (priceId: string) => {
-    createCheckoutSessionMutation.mutate({ priceId, mode: 'subscription' });
+  const handleSelectPlan = (
+    priceId: string,
+    mode: 'subscription' | 'payment' = 'subscription'
+  ) => {
+    createCheckoutSessionMutation.mutate({ priceId, mode });
   };
+
+  const subscriptionPlans =
+    plans?.filter((p) => p.mode === 'subscription') || [];
+  const extraCreditsPlan = plans?.find((p) => p.mode === 'payment');
 
   const usagePercent = wallet
     ? (wallet.usageCount /
@@ -65,25 +72,28 @@ export default function SubscriptionViewPage() {
                     {isWalletLoading ? (
                       <Skeleton className='h-4 w-16' />
                     ) : wallet?.status === 'active' ? (
-                      'Pro Plan'
+                      'Premium Plan'
                     ) : (
-                      'Free Trial'
+                      'Free Credits'
                     )}
                   </Badge>
                   <span className='text-muted-foreground text-sm font-medium'>
-                    Renews on{' '}
-                    {wallet?.currentPeriodEnd
-                      ? format(
-                          new Date(wallet.currentPeriodEnd),
-                          'MMMM dd, yyyy'
-                        )
-                      : '...'}
+                    {wallet?.status === 'active'
+                      ? `Renews on ${format(new Date(wallet.currentPeriodEnd), 'MMMM dd, yyyy')}`
+                      : 'Upgrade to a plan for more credits'}
                   </span>
                 </div>
               </div>
               <Button
                 variant='outline'
                 className='h-12 rounded-xl px-6 font-bold'
+                onClick={() =>
+                  window.open(
+                    'https://billing.stripe.com/p/login/test_your_link',
+                    '_blank'
+                  )
+                }
+                disabled={wallet?.status !== 'active'}
               >
                 Manage in Stripe
               </Button>
@@ -106,18 +116,18 @@ export default function SubscriptionViewPage() {
                 </div>
                 <div className='bg-background space-y-1 rounded-2xl border p-4 shadow-sm'>
                   <p className='text-muted-foreground text-[10px] font-bold tracking-widest uppercase'>
-                    Rollover
+                    Extra
                   </p>
                   <p className='text-2xl font-bold'>
-                    {wallet?.rolledOverCredits || 0}
+                    {wallet?.extraCredits || 0}
                   </p>
                 </div>
                 <div className='bg-background space-y-1 rounded-2xl border p-4 shadow-sm'>
                   <p className='text-muted-foreground text-[10px] font-bold tracking-widest uppercase'>
-                    Prorated
+                    Rollover
                   </p>
                   <p className='text-2xl font-bold'>
-                    {wallet?.proratedCredits || 0}
+                    {wallet?.rolledOverCredits || 0}
                   </p>
                 </div>
               </div>
@@ -129,6 +139,7 @@ export default function SubscriptionViewPage() {
                     {wallet?.usageCount || 0} /{' '}
                     {(wallet?.planCredits || 0) +
                       (wallet?.rolledOverCredits || 0) +
+                      (wallet?.extraCredits || 0) +
                       (wallet?.proratedCredits || 0)}{' '}
                     used
                   </span>
@@ -159,8 +170,17 @@ export default function SubscriptionViewPage() {
             <Button
               variant='secondary'
               className='mt-8 h-14 w-full rounded-2xl text-lg font-bold'
+              onClick={() =>
+                extraCreditsPlan &&
+                handleSelectPlan(extraCreditsPlan.priceId, 'payment')
+              }
+              disabled={
+                createCheckoutSessionMutation.isPending || !extraCreditsPlan
+              }
             >
-              Buy Extra Credits
+              {createCheckoutSessionMutation.isPending
+                ? 'Processing...'
+                : `Buy ${extraCreditsPlan?.credits || 50} Credits`}
             </Button>
           </Card>
         </div>
@@ -178,7 +198,7 @@ export default function SubscriptionViewPage() {
               ? [1, 2, 3].map((i) => (
                   <Skeleton key={i} className='h-[450px] rounded-3xl' />
                 ))
-              : plans?.map((plan) => {
+              : subscriptionPlans?.map((plan) => {
                   const Icon = PLAN_ICONS[plan.name] || IconBolt;
                   const isRecommended = plan.name === 'Pro';
 
@@ -247,7 +267,9 @@ export default function SubscriptionViewPage() {
                       </ul>
 
                       <Button
-                        onClick={() => handleSelectPlan(plan.priceId)}
+                        onClick={() =>
+                          handleSelectPlan(plan.priceId, 'subscription')
+                        }
                         className={cn(
                           'h-14 w-full rounded-2xl text-lg font-bold',
                           isRecommended

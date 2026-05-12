@@ -305,6 +305,7 @@ export function RepurposeFlow() {
 
       case 'processing':
         const statusMap: Record<string, number> = {
+          pending: 0,
           queued: 0,
           processing: 1,
           completed: 3,

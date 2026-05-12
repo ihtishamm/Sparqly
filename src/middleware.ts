@@ -26,7 +26,7 @@ export function middleware(request: NextRequest) {
   }
 
   if (isAuthRoute && token) {
-    return NextResponse.redirect(new URL('/dashboard/overview', request.url));
+    return NextResponse.redirect(new URL('/dashboard/repurpose', request.url));
   }
 
   return NextResponse.next();

@@ -18,7 +18,7 @@ export function useAuthService() {
     onSuccess: (data) => {
       setAuth(data.user, data.token, data.refreshToken);
       toast.success('Logged in successfully');
-      router.push('/dashboard/overview');
+      router.push('/dashboard/repurpose');
     },
     meta: {
       errorMessage: 'Login failed. Please check your credentials.'

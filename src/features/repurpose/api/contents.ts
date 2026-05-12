@@ -19,10 +19,12 @@ export function useContents() {
 
   const createContentMutation = useMutation({
     mutationFn: (data: {
-      sourceUrl?: string;
       title: string;
-      type: string;
-      fileId?: string;
+      status: string;
+      sourceType: string;
+      description?: string;
+      metadata?: any;
+      user: { id: number | string };
     }) => post<Content>('/v1/contents', data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['contents'] });
@@ -39,9 +41,26 @@ export function useContents() {
     }
   });
 
+  const createAssetMutation = useMutation({
+    mutationFn: (data: {
+      content: { id: string };
+      type: string;
+      storageProvider: string;
+      fileUrl: string;
+      mimeType?: string;
+    }) => post<any>('/v1/content-assets', data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['contents'] });
+    },
+    meta: {
+      errorMessage: 'Failed to save asset'
+    }
+  });
+
   return {
     useGetContents,
     createContentMutation,
-    deleteContentMutation
+    deleteContentMutation,
+    createAssetMutation
   };
 }

@@ -71,7 +71,7 @@ export interface ScheduledPost {
 export interface AiJob {
   id: string;
   jobType: string;
-  status: 'queued' | 'processing' | 'completed' | 'failed';
+  status: 'pending' | 'queued' | 'processing' | 'completed' | 'failed';
   input?: any;
   output?: any;
   errorMessage?: string;

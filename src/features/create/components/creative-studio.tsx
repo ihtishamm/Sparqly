@@ -579,16 +579,16 @@ export function CreativeStudio() {
                       </div>
                     </div>
                   ) : mode === 'video' ? (
-                    <div className='flex h-full min-h-0 w-full items-center justify-center bg-stone-950 p-4 lg:p-8'>
+                    <div className='flex h-full min-h-0 w-full items-center justify-center p-4 lg:p-8'>
                       <div
                         className={cn(
-                          'group relative overflow-hidden rounded-2xl border border-white/10 bg-stone-900 shadow-2xl',
+                          'group relative overflow-hidden rounded-2xl border shadow-2xl',
                           ratio === '9:16'
                             ? 'aspect-[9/16]'
                             : ratio === '16:9'
                               ? 'aspect-[16/9]'
                               : 'aspect-square',
-                          'max-h-full max-w-full'
+                          'max-h-[500px] max-w-[500px]'
                         )}
                       >
                         {jobResultContent ? (
@@ -609,10 +609,10 @@ export function CreativeStudio() {
                       </div>
                     </div>
                   ) : (
-                    <div className='flex h-full min-h-0 w-full items-center justify-center bg-stone-950 p-4 lg:p-8'>
+                    <div className='flex h-full min-h-0 w-full items-center justify-center p-4 lg:p-8'>
                       <div
                         className={cn(
-                          'group hover:shadow-primary/20 relative overflow-hidden rounded-2xl border border-white/10 bg-stone-900 shadow-2xl transition-all duration-500 hover:scale-[1.02]',
+                          'group hover:shadow-primary/20 relative overflow-hidden rounded-2xl border shadow-2xl transition-all duration-500 hover:scale-[1.02]',
                           ratio === '9:16'
                             ? 'aspect-[9/16]'
                             : ratio === '16:9'

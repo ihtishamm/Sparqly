@@ -130,19 +130,38 @@ export function CalendarView() {
                 <AnimatePresence>
                   {dayPosts.map((post) => {
                     const Icon =
-                      PLATFORM_ICONS[post.platformAccount.platform] ||
+                      PLATFORM_ICONS[post.platformAccount?.platform || ''] ||
                       IconCalendar;
                     return (
                       <motion.div
                         key={post.id}
                         initial={{ opacity: 0, x: -5 }}
                         animate={{ opacity: 1, x: 0 }}
-                        className='bg-primary/5 border-primary/10 group hover:bg-primary/10 flex cursor-pointer items-center gap-2 rounded-lg border p-1.5 transition-colors'
+                        className={`group flex cursor-pointer items-center gap-2 rounded-lg border p-1.5 transition-colors ${
+                          post.status === 'published'
+                            ? 'border-green-500/20 bg-green-500/10 text-green-700 hover:bg-green-500/20 dark:text-green-400'
+                            : post.status === 'failed'
+                              ? 'border-red-500/20 bg-red-500/10 text-red-700 hover:bg-red-500/20 dark:text-red-400'
+                              : post.status === 'pending'
+                                ? 'border-amber-500/20 bg-amber-500/10 text-amber-700 hover:bg-amber-500/20 dark:text-amber-400'
+                                : 'bg-primary/5 border-primary/10 hover:bg-primary/10 text-primary'
+                        }`}
                       >
-                        <Icon className='text-primary h-3 w-3 shrink-0' />
+                        <Icon className='h-3 w-3 shrink-0' />
                         <span className='flex-1 truncate text-[10px] font-medium'>
-                          {post.content.title || 'Untitled'}
+                          {post.content?.title || 'Untitled'}
                         </span>
+                        <div
+                          className={`size-1.5 rounded-full ${
+                            post.status === 'published'
+                              ? 'bg-green-500'
+                              : post.status === 'failed'
+                                ? 'bg-red-500'
+                                : post.status === 'pending'
+                                  ? 'bg-amber-500'
+                                  : 'bg-primary'
+                          }`}
+                        />
                         <span className='text-muted-foreground text-[8px] opacity-0 transition-opacity group-hover:opacity-100'>
                           {format(new Date(post.scheduledAt), 'HH:mm')}
                         </span>

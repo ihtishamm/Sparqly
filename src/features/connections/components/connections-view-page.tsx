@@ -2,19 +2,15 @@
 
 import * as React from 'react';
 import PageContainer from '@/components/layout/page-container';
-import { Card, CardHeader, CardContent } from '@/components/ui/card';
+import { Card, CardHeader } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import {
   IconBrandLinkedin,
-  IconBrandTwitter,
   IconBrandInstagram,
   IconBrandYoutube,
-  IconBrandTiktok,
-  IconCheck,
   IconPlugConnected,
   IconShieldCheck,
-  IconActivity,
   IconArrowRight
 } from '@tabler/icons-react';
 import { usePlatformAccounts } from '../api/platform-accounts';
@@ -43,20 +39,6 @@ const PLATFORMS = [
     icon: IconBrandInstagram,
     color: 'bg-gradient-to-tr from-yellow-400 via-red-500 to-purple-500',
     description: 'Post Reels and photos to your feed.'
-  },
-  {
-    id: 'twitter',
-    name: 'Twitter / X',
-    icon: IconBrandTwitter,
-    color: 'bg-stone-900',
-    description: 'Engage with your audience through threads and posts.'
-  },
-  {
-    id: 'tiktok',
-    name: 'TikTok',
-    icon: IconBrandTiktok,
-    color: 'bg-black',
-    description: 'Sync viral short-form content to your profile.'
   }
 ];
 
@@ -99,7 +81,7 @@ export default function ConnectionsViewPage() {
           </div>
         </header>
 
-        <div className='grid gap-8 lg:grid-cols-[1fr_300px]'>
+        <div className='max-w-5xl'>
           <div className='space-y-6'>
             <h2 className='flex items-center gap-2 text-xl font-bold'>
               <IconPlugConnected className='text-primary h-5 w-5' /> Available
@@ -199,54 +181,6 @@ export default function ConnectionsViewPage() {
               </AnimatePresence>
             </div>
           </div>
-
-          <aside className='space-y-6'>
-            <Card className='border-primary/10 from-primary/5 overflow-hidden rounded-3xl bg-gradient-to-b to-transparent'>
-              <CardHeader>
-                <div className='bg-primary/10 mb-2 w-fit rounded-2xl p-3'>
-                  <IconActivity className='text-primary h-6 w-6' />
-                </div>
-                <h3 className='text-lg font-bold'>Platform Health</h3>
-                <p className='text-muted-foreground text-xs leading-relaxed'>
-                  All social platform APIs are currently operational and
-                  synchronized.
-                </p>
-              </CardHeader>
-              <CardContent className='space-y-4'>
-                <div className='flex items-center justify-between text-xs'>
-                  <span className='text-muted-foreground'>API Status</span>
-                  <span className='font-bold text-green-500'>99.9%</span>
-                </div>
-                <div className='flex items-center justify-between text-xs'>
-                  <span className='text-muted-foreground'>Last Sync</span>
-                  <span className='font-mono'>Just now</span>
-                </div>
-                <div className='pt-2'>
-                  <div className='bg-muted flex h-1.5 w-full gap-1 overflow-hidden rounded-full'>
-                    <div className='flex-1 bg-green-500' />
-                    <div className='flex-1 bg-green-500' />
-                    <div className='flex-1 bg-green-500' />
-                    <div className='flex-1 bg-green-500' />
-                    <div className='flex-1 bg-green-500/50' />
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card className='rounded-3xl border-none bg-stone-900 p-6 text-white'>
-              <h4 className='mb-2 font-bold'>Need Help?</h4>
-              <p className='mb-4 text-xs leading-relaxed text-stone-400'>
-                Encountering issues connecting your social accounts? Check our
-                documentation or contact support.
-              </p>
-              <Button
-                variant='secondary'
-                className='h-10 w-full rounded-xl text-xs'
-              >
-                Read Guide
-              </Button>
-            </Card>
-          </aside>
         </div>
       </div>
     </PageContainer>

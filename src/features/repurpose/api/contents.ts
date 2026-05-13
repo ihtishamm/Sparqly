@@ -1,6 +1,11 @@
 import { Content, InfinityPaginationResponse } from '@/types/api';
 import { useApi } from '@/hooks/use-api';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import {
+  useQuery,
+  useMutation,
+  useQueryClient,
+  useInfiniteQuery
+} from '@tanstack/react-query';
 
 export interface CreateContentData {
   title: string;
@@ -25,6 +30,20 @@ export function useContents() {
           page,
           limit
         })
+    });
+  };
+
+  const useGetInfiniteContents = (limit = 10) => {
+    return useInfiniteQuery({
+      queryKey: ['contents', 'infinite', limit],
+      queryFn: ({ pageParam = 1 }) =>
+        get<InfinityPaginationResponse<Content>>('/v1/contents', {
+          page: pageParam,
+          limit
+        }),
+      getNextPageParam: (lastPage, allPages) =>
+        lastPage.hasNextPage ? allPages.length + 1 : undefined,
+      initialPageParam: 1
     });
   };
 
@@ -57,6 +76,20 @@ export function useContents() {
     });
   };
 
+  const useGetInfiniteContentAssets = (limit = 10) => {
+    return useInfiniteQuery({
+      queryKey: ['content-assets', 'infinite', limit],
+      queryFn: ({ pageParam = 1 }) =>
+        get<InfinityPaginationResponse<any>>('/v1/content-assets', {
+          page: pageParam,
+          limit
+        }),
+      getNextPageParam: (lastPage, allPages) =>
+        lastPage.hasNextPage ? allPages.length + 1 : undefined,
+      initialPageParam: 1
+    });
+  };
+
   const createAssetMutation = useMutation({
     mutationFn: (data: {
       content: { id: string };
@@ -84,7 +117,9 @@ export function useContents() {
 
   return {
     useGetContents,
+    useGetInfiniteContents,
     useGetContentAssets,
+    useGetInfiniteContentAssets,
     createContentMutation,
     deleteContentMutation,
     createAssetMutation,

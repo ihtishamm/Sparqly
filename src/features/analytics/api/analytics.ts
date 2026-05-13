@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
-import { apiClient } from '@/lib/api-client';
+import { useApi } from '@/hooks/use-api';
 
 export interface AnalyticsOverview {
   kpis: {
@@ -21,18 +21,16 @@ export interface AnalyticsOverview {
 }
 
 export const useAnalytics = () => {
+  const { get } = useApi();
+
   const useGetOverview = (startDate?: string, endDate?: string) => {
     return useQuery({
       queryKey: ['analytics', 'overview', startDate, endDate],
-      queryFn: async () => {
-        const response = await apiClient.get<AnalyticsOverview>(
-          '/v1/analytics/overview',
-          {
-            params: { startDate, endDate }
-          }
-        );
-        return response;
-      }
+      queryFn: () =>
+        get<AnalyticsOverview>('/v1/analytics/overview', {
+          startDate,
+          endDate
+        })
     });
   };
 

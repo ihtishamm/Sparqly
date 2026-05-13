@@ -38,10 +38,9 @@ const chartConfig = {
     label: 'Engagement',
     color: 'var(--chart-2)'
   },
-  instagram: { label: 'Instagram', color: 'var(--chart-1)' },
-  twitter: { label: 'Twitter', color: 'var(--chart-2)' },
-  linkedin: { label: 'LinkedIn', color: 'var(--chart-3)' },
-  tiktok: { label: 'TikTok', color: 'var(--chart-4)' }
+  instagram: { label: 'Instagram', color: '#E1306C' },
+  youtube: { label: 'YouTube', color: '#FF0000' },
+  linkedin: { label: 'LinkedIn', color: '#0077B5' }
 };
 
 export default function AnalyticsViewPage() {

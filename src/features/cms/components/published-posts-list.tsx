@@ -19,7 +19,8 @@ import {
   IconBrandLinkedin,
   IconBrandTwitter,
   IconBrandInstagram,
-  IconBrandTiktok
+  IconBrandTiktok,
+  IconRefresh
 } from '@tabler/icons-react';
 import { Skeleton } from '@/components/ui/skeleton';
 
@@ -74,7 +75,7 @@ export function PublishedPostsList() {
           <TableBody>
             {activityPosts.map((post) => {
               const Icon = PLATFORM_ICONS[post.platformAccount?.platform || ''];
-              const postUrl: string | null = null;
+              const postUrl = post?.metadata?.postUrl || post?.postUrl;
 
               return (
                 <TableRow
@@ -126,6 +127,30 @@ export function PublishedPostsList() {
                         >
                           <IconExternalLink className='size-4' />
                         </a>
+                      </Button>
+                    )}
+                    {post.status === 'failed' && (
+                      <Button
+                        variant='ghost'
+                        size='icon'
+                        className='text-destructive h-8 w-8 rounded-full'
+                        onClick={() => {
+                          // Call retry API
+                          fetch(
+                            `${process.env.NEXT_PUBLIC_API_URL}/api/v1/scheduled-posts/${post.id}/retry`,
+                            {
+                              method: 'POST',
+                              headers: {
+                                Authorization: `Bearer ${localStorage.getItem('authToken')}`
+                              }
+                            }
+                          ).then(() => {
+                            window.location.reload();
+                          });
+                        }}
+                        title='Retry Publishing'
+                      >
+                        <IconRefresh className='size-4' />
                       </Button>
                     )}
                   </TableCell>

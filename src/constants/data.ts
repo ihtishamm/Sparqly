@@ -60,20 +60,6 @@ export const navItems: NavItem[] = [
     isActive: false,
     shortcut: ['n', 'n'],
     items: []
-  },
-  {
-    title: 'Account',
-    url: '#',
-    icon: 'billing',
-    isActive: true,
-    items: [
-      {
-        title: 'Profile',
-        url: '/dashboard/profile',
-        icon: 'userPen',
-        shortcut: ['m', 'm']
-      }
-    ]
   }
 ];
 

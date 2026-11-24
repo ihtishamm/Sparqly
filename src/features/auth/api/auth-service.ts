@@ -6,6 +6,8 @@ import { useRouter } from 'next/navigation';
 import { useEffect } from 'react';
 import { toast } from 'sonner';
 
+export const GOOGLE_STATE_KEY = 'sparqly-google-oauth-state';
+
 export function useAuthService() {
   const { post, get } = useApi();
   const { setAuth, logout, updateUser } = useAuthStore();
@@ -79,11 +81,27 @@ export function useAuthService() {
   };
 
   const googleLoginMutation = useMutation({
-    mutationFn: () => get<{ url: string }>('/v1/auth-google/login'),
+    mutationFn: () =>
+      get<{ url: string; state: string }>('/v1/auth-google/login'),
     onSuccess: (data) => {
       if (data.url) {
+        // Checked on /auth/google/callback so the code came from this browser.
+        sessionStorage.setItem(GOOGLE_STATE_KEY, data.state);
         window.location.href = data.url;
       }
+    },
+    meta: {
+      errorMessage: 'Could not start Google sign-in'
+    }
+  });
+
+  const googleCallbackMutation = useMutation({
+    mutationFn: (data: { code: string; state: string }) =>
+      post<LoginResponse>('/v1/auth-google/callback', data),
+    onSuccess: (data) => {
+      setAuth(data.user, data.token, data.refreshToken);
+      toast.success('Logged in successfully');
+      router.replace('/dashboard/repurpose');
     }
   });
 
@@ -101,6 +119,7 @@ export function useAuthService() {
     resetPasswordMutation,
     confirmEmailMutation,
     googleLoginMutation,
+    googleCallbackMutation,
     useMe,
     handleLogout
   };

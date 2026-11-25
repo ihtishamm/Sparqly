@@ -1,13 +1,8 @@
-import { cookies } from 'next/headers';
-import { redirect } from 'next/navigation';
+import type { Metadata } from 'next';
+import { HomePage } from '@/features/home/home-page';
 
-export default async function Dashboard() {
-  const cookieStore = await cookies();
-  const token = cookieStore.get('token')?.value;
+export const metadata: Metadata = { title: 'Home' };
 
-  if (!token) {
-    return redirect('/auth/sign-in');
-  } else {
-    redirect('/dashboard/repurpose');
-  }
+export default function Page() {
+  return <HomePage />;
 }

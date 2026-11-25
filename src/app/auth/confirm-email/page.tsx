@@ -1,11 +1,13 @@
-import { Metadata } from 'next';
-import ConfirmEmailViewPage from '@/features/auth/components/confirm-email-view';
+import { Suspense } from 'react';
+import type { Metadata } from 'next';
+import { ConfirmEmailView } from '@/features/auth/callback-views';
 
-export const metadata: Metadata = {
-  title: 'Authentication | Confirm Email',
-  description: 'Confirm Email page for authentication.'
-};
+export const metadata: Metadata = { title: 'Confirm email' };
 
 export default function Page() {
-  return <ConfirmEmailViewPage />;
+  return (
+    <Suspense>
+      <ConfirmEmailView />
+    </Suspense>
+  );
 }

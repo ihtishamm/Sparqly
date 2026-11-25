@@ -1,10 +1,8 @@
-import { Metadata } from 'next';
 import { Suspense } from 'react';
-import GoogleCallbackView from '@/features/auth/components/google-callback-view';
+import type { Metadata } from 'next';
+import { GoogleCallbackView } from '@/features/auth/callback-views';
 
-export const metadata: Metadata = {
-  title: 'Authentication | Google Sign-In'
-};
+export const metadata: Metadata = { title: 'Signing in' };
 
 export default function Page() {
   return (

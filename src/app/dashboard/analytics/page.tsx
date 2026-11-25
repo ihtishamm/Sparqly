@@ -1,11 +1,8 @@
-import { Metadata } from 'next';
-import AnalyticsViewPage from '@/features/analytics/components/analytics-view-page';
+import type { Metadata } from 'next';
+import { AnalyticsPage } from '@/features/insights/analytics-page';
 
-export const metadata: Metadata = {
-  title: 'Analytics',
-  description: 'View your content performance and insights.'
-};
+export const metadata: Metadata = { title: 'Analytics' };
 
 export default function Page() {
-  return <AnalyticsViewPage />;
+  return <AnalyticsPage />;
 }

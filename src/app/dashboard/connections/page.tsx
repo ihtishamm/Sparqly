@@ -1,11 +1,13 @@
-import { Metadata } from 'next';
-import ConnectionsViewPage from '@/features/connections/components/connections-view-page';
+import { Suspense } from 'react';
+import type { Metadata } from 'next';
+import { ConnectionsPage } from '@/features/publishing/connections-page';
 
-export const metadata: Metadata = {
-  title: 'Connections',
-  description: 'Connect your social media accounts.'
-};
+export const metadata: Metadata = { title: 'Connections' };
 
 export default function Page() {
-  return <ConnectionsViewPage />;
+  return (
+    <Suspense>
+      <ConnectionsPage />
+    </Suspense>
+  );
 }

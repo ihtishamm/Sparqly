@@ -1,17 +1,33 @@
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
-import { User } from '@/types/api';
 import Cookies from 'js-cookie';
+import type { User } from '@/lib/api/types';
+
+/**
+ * Presence-only cookie read by middleware to route signed-in users. It never
+ * holds a token; the tokens stay in this store.
+ */
+export const SESSION_COOKIE = 'sparqly_session';
+/** Matches the backend's refresh token lifetime (AUTH_REFRESH_TOKEN_EXPIRES_IN). */
+const SESSION_DAYS = 30;
+
+export type Session = {
+  token: string;
+  refreshToken: string;
+  /** Access token expiry, epoch ms. */
+  tokenExpires: number;
+};
 
 interface AuthState {
   user: User | null;
   token: string | null;
   refreshToken: string | null;
-  isAuthenticated: boolean;
+  tokenExpires: number | null;
 
-  setAuth: (user: User, token: string, refreshToken: string) => void;
-  updateUser: (user: User) => void;
-  logout: () => void;
+  signIn: (session: Session & { user: User }) => void;
+  setSession: (session: Session) => void;
+  setUser: (user: User) => void;
+  clear: () => void;
 }
 
 export const useAuthStore = create<AuthState>()(
@@ -20,28 +36,43 @@ export const useAuthStore = create<AuthState>()(
       user: null,
       token: null,
       refreshToken: null,
-      isAuthenticated: false,
+      tokenExpires: null,
 
-      setAuth: (user, token, refreshToken) => {
-        Cookies.set('token', token, { expires: 7 }); // Set cookie for middleware
-        set({ user, token, refreshToken, isAuthenticated: true });
+      signIn: ({ user, token, refreshToken, tokenExpires }) => {
+        Cookies.set(SESSION_COOKIE, '1', {
+          expires: SESSION_DAYS,
+          sameSite: 'lax',
+          secure: window.location.protocol === 'https:'
+        });
+        set({ user, token, refreshToken, tokenExpires });
       },
 
-      updateUser: (user) => set({ user }),
+      setSession: ({ token, refreshToken, tokenExpires }) =>
+        set({ token, refreshToken, tokenExpires }),
 
-      logout: () => {
-        Cookies.remove('token');
+      setUser: (user) => set({ user }),
+
+      clear: () => {
+        Cookies.remove(SESSION_COOKIE);
         set({
           user: null,
           token: null,
           refreshToken: null,
-          isAuthenticated: false
+          tokenExpires: null
         });
       }
     }),
     {
       name: 'sparqly-auth',
-      storage: createJSONStorage(() => localStorage)
+      version: 2,
+      storage: createJSONStorage(() => localStorage),
+      // Sessions from the previous app version had no expiry; drop them.
+      migrate: () => ({
+        user: null,
+        token: null,
+        refreshToken: null,
+        tokenExpires: null
+      })
     }
   )
 );

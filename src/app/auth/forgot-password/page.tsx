@@ -1,11 +1,13 @@
-import { Metadata } from 'next';
-import ForgotPasswordViewPage from '@/features/auth/components/forgot-password-view';
+import { Suspense } from 'react';
+import type { Metadata } from 'next';
+import { ForgotPasswordForm } from '@/features/auth/password-forms';
 
-export const metadata: Metadata = {
-  title: 'Authentication | Forgot Password',
-  description: 'Forgot Password page for authentication.'
-};
+export const metadata: Metadata = { title: 'Reset password' };
 
 export default function Page() {
-  return <ForgotPasswordViewPage />;
+  return (
+    <Suspense>
+      <ForgotPasswordForm />
+    </Suspense>
+  );
 }

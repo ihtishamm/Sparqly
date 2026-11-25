@@ -1,5 +1,13 @@
-import EditorViewPage from '@/features/editor/components/editor-view-page';
+import type { Metadata } from 'next';
+import { EditorPage } from '@/features/editor/editor-page';
 
-export default function Page() {
-  return <EditorViewPage />;
+export const metadata: Metadata = { title: 'Editor' };
+
+export default async function Page({
+  params
+}: {
+  params: Promise<{ id: string }>;
+}) {
+  const { id } = await params;
+  return <EditorPage id={id} />;
 }

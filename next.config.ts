@@ -1,66 +1,77 @@
 import type { NextConfig } from 'next';
 import { withSentryConfig } from '@sentry/nextjs';
 
-// Define the base Next.js configuration
 const baseConfig: NextConfig = {
-  images: {
-    remotePatterns: [
+  poweredByHeader: false,
+  async redirects() {
+    // Old routes, kept so bookmarks and emailed links still work.
+    return [
       {
-        protocol: 'https',
-        hostname: 'api.slingacademy.com',
-        port: ''
+        source: '/dashboard/overview',
+        destination: '/dashboard',
+        permanent: true
       },
       {
-        protocol: 'http',
-        hostname: 'localhost',
-        port: '3000'
+        source: '/dashboard/content',
+        destination: '/dashboard/projects',
+        permanent: true
       },
       {
-        protocol: 'https',
-        hostname: 'img.youtube.com'
+        source: '/dashboard/content/:id',
+        destination: '/dashboard/projects/:id',
+        permanent: true
+      },
+      {
+        source: '/dashboard/create',
+        destination: '/dashboard/studio',
+        permanent: true
+      },
+      {
+        source: '/dashboard/subscription',
+        destination: '/dashboard/billing',
+        permanent: true
+      },
+      {
+        source: '/dashboard/profile',
+        destination: '/dashboard/settings',
+        permanent: true
+      },
+      {
+        source: '/auth/reset-password',
+        destination: '/auth/password-change',
+        permanent: true
       }
-    ]
+    ];
   },
-  transpilePackages: ['geist']
+  async headers() {
+    return [
+      {
+        source: '/:path*',
+        headers: [
+          { key: 'X-Content-Type-Options', value: 'nosniff' },
+          { key: 'Referrer-Policy', value: 'strict-origin-when-cross-origin' },
+          { key: 'X-Frame-Options', value: 'DENY' }
+        ]
+      }
+    ];
+  }
 };
 
-let configWithPlugins = baseConfig;
+// Sentry is only wired in when a DSN is configured and not disabled.
+const sentryOn =
+  !!process.env.NEXT_PUBLIC_SENTRY_DSN &&
+  !process.env.NEXT_PUBLIC_SENTRY_DISABLED;
 
-// Conditionally enable Sentry configuration
-if (!process.env.NEXT_PUBLIC_SENTRY_DISABLED) {
-  configWithPlugins = withSentryConfig(configWithPlugins, {
-    // For all available options, see:
-    // https://www.npmjs.com/package/@sentry/webpack-plugin#options
-    // FIXME: Add your Sentry organization and project names
-    org: process.env.NEXT_PUBLIC_SENTRY_ORG,
-    project: process.env.NEXT_PUBLIC_SENTRY_PROJECT,
-    // Only print logs for uploading source maps in CI
-    silent: !process.env.CI,
+const nextConfig = sentryOn
+  ? withSentryConfig(baseConfig, {
+      org: process.env.NEXT_PUBLIC_SENTRY_ORG,
+      project: process.env.NEXT_PUBLIC_SENTRY_PROJECT,
+      silent: !process.env.CI,
+      widenClientFileUpload: true,
+      tunnelRoute: '/monitoring',
+      disableLogger: true,
+      telemetry: false
+    })
+  : baseConfig;
 
-    // For all available options, see:
-    // https://docs.sentry.io/platforms/javascript/guides/nextjs/manual-setup/
-
-    // Upload a larger set of source maps for prettier stack traces (increases build time)
-    widenClientFileUpload: true,
-
-    // Upload a larger set of source maps for prettier stack traces (increases build time)
-    reactComponentAnnotation: {
-      enabled: true
-    },
-
-    // Route browser requests to Sentry through a Next.js rewrite to circumvent ad-blockers.
-    // This can increase your server load as well as your hosting bill.
-    // Note: Check that the configured route will not match with your Next.js middleware, otherwise reporting of client-
-    // side errors will fail.
-    tunnelRoute: '/monitoring',
-
-    // Automatically tree-shake Sentry logger statements to reduce bundle size
-    disableLogger: true,
-
-    // Disable Sentry telemetry
-    telemetry: false
-  });
-}
-
-const nextConfig = configWithPlugins;
 export default nextConfig;

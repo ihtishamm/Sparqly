@@ -1,11 +1,8 @@
-import { Metadata } from 'next';
-import RepurposeViewPage from '@/features/repurpose/components/repurpose-view-page';
+import type { Metadata } from 'next';
+import { RepurposePage } from '@/features/create/repurpose-page';
 
-export const metadata: Metadata = {
-  title: 'Repurpose Content',
-  description: 'Repurpose your content into clips, blog posts, and captions.'
-};
+export const metadata: Metadata = { title: 'Repurpose' };
 
 export default function Page() {
-  return <RepurposeViewPage />;
+  return <RepurposePage />;
 }

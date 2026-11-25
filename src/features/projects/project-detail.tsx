@@ -408,8 +408,9 @@ function DetailSkeleton() {
 
 export function ProjectDetailPage({ id }: { id: string }) {
   const router = useRouter();
-  const project = useProject(id);
   const remove = useDeleteProject();
+  // Once deleted, don't refetch it on the way out (it would 422).
+  const project = useProject(id, { enabled: !remove.isSuccess });
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [scheduling, setScheduling] = useState<ScheduleTarget | null>(null);
 

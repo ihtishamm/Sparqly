@@ -69,18 +69,51 @@ export function toSaveBody(doc: Doc): SaveTimelineBody {
   };
 }
 
-/** The base clip: first element of the first video track. */
+/**
+ * The base clips: the first video track. They play back to back from 0 and
+ * the renderer joins them in order, so a split clip is several of these.
+ */
+export function baseClips(doc: Doc): El[] {
+  const track = doc.tracks.find((t) => t.type === 'video');
+  return track
+    ? [...track.elements].sort((a, b) => a.startTimeMs - b.startTimeMs)
+    : [];
+}
+
+/** The first base clip. */
 export function mainElement(doc: Doc): El | null {
-  return doc.tracks.find((t) => t.type === 'video')?.elements[0] ?? null;
+  return baseClips(doc)[0] ?? null;
+}
+
+export function isBaseClip(doc: Doc, key: string | null) {
+  return !!key && baseClips(doc).some((e) => e.key === key);
+}
+
+/** The base clip playing at `t` (the last one at or past the end). */
+export function clipAt(doc: Doc, t: number): El | null {
+  const clips = baseClips(doc);
+  return (
+    clips.find((c) => t >= c.startTimeMs && t < c.endTimeMs) ??
+    clips[clips.length - 1] ??
+    null
+  );
+}
+
+/** Seconds into the source file shown at timeline time `t`. */
+export function sourceSecondsAt(clip: El, t: number) {
+  const within = Math.min(Math.max(t, clip.startTimeMs), clip.endTimeMs - 1);
+  return (
+    ((clip.properties.sourceStartMs ?? 0) + within - clip.startTimeMs) / 1000
+  );
 }
 
 /**
- * Length of the export: the base clip's end, since the renderer has no
- * frames past it. Without a clip, the furthest element.
+ * Length of the export: the end of the last base clip, since the renderer
+ * has no frames past it. Without a clip, the furthest element.
  */
 export function docDuration(doc: Doc) {
-  const main = mainElement(doc);
-  if (main) return main.endTimeMs;
+  const clips = baseClips(doc);
+  if (clips.length) return clips[clips.length - 1].endTimeMs;
   let max = 0;
   for (const t of doc.tracks)
     for (const e of t.elements) max = Math.max(max, e.endTimeMs);
@@ -161,38 +194,184 @@ export function shiftElement(el: El, deltaMs: number): El {
   };
 }
 
+/* ------------------------- Ripple edits on clips -------------------------- */
+
+const withSource = (el: El, sourceStartMs: number, lengthMs: number): El => ({
+  ...el,
+  properties: {
+    ...el.properties,
+    sourceStartMs,
+    sourceEndMs: sourceStartMs + lengthMs
+  }
+});
+
 /**
- * Trims the start of the base clip by `deltaMs` (positive = cut more). The
- * clip stays at 0, so everything after it moves with the source audio.
+ * Applies an edit to one base clip and ripples the rest of the timeline:
+ * everything starting at or after `at` moves by `delta`, and items that lay
+ * entirely inside the removed span `cut` go with the footage they belonged
+ * to (captions of cut speech, for example). Items pushed before `floor` are
+ * clamped to it, or dropped if nothing is left.
  */
-export function trimMainStart(doc: Doc, deltaMs: number): Doc {
-  const main = mainElement(doc);
-  if (!main || !deltaMs) return doc;
+function ripple(
+  doc: Doc,
+  clip: El,
+  edited: El | null,
+  at: number,
+  delta: number,
+  cut: [number, number] | null,
+  floor: number
+): Doc {
+  const inside = (e: El) =>
+    !!cut && e.startTimeMs >= cut[0] && e.endTimeMs <= cut[1];
   return {
     tracks: doc.tracks.map((t) => ({
       ...t,
-      elements: t.elements
-        .map((e) => {
-          if (e.key === main.key) {
-            return {
-              ...e,
-              endTimeMs: e.endTimeMs - deltaMs,
-              properties: {
-                ...e.properties,
-                sourceStartMs: Math.max(
-                  0,
-                  (e.properties.sourceStartMs ?? 0) + deltaMs
-                )
-              }
-            };
-          }
-          return shiftElement(e, -deltaMs);
-        })
-        .filter((e) => e.endTimeMs > 0)
-        .map((e) =>
-          e.startTimeMs < 0 && e.key !== main.key ? { ...e, startTimeMs: 0 } : e
-        )
+      elements: t.elements.flatMap((e) => {
+        if (e.key === clip.key) return edited ? [edited] : [];
+        if (inside(e)) return [];
+        if (e.startTimeMs < at || !delta) return [e];
+        const moved = shiftElement(e, delta);
+        if (moved.startTimeMs >= floor) return [moved];
+        if (moved.endTimeMs <= floor) return [];
+        return [{ ...moved, startTimeMs: floor }];
+      })
     }))
+  };
+}
+
+/**
+ * Trims the start of a base clip by `deltaMs` (positive = cut more). The clip
+ * keeps its place, so what follows moves with the source audio.
+ */
+export function trimBaseStart(doc: Doc, key: string, deltaMs: number): Doc {
+  const clip = baseClips(doc).find((c) => c.key === key);
+  if (!clip || !deltaMs) return doc;
+  const sourceStart = Math.max(
+    0,
+    (clip.properties.sourceStartMs ?? 0) + deltaMs
+  );
+  const edited = withSource(
+    { ...clip, endTimeMs: clip.endTimeMs - deltaMs },
+    sourceStart,
+    clip.endTimeMs - deltaMs - clip.startTimeMs
+  );
+  return ripple(
+    doc,
+    clip,
+    edited,
+    clip.startTimeMs,
+    -deltaMs,
+    deltaMs > 0 ? [clip.startTimeMs, clip.startTimeMs + deltaMs] : null,
+    clip.startTimeMs
+  );
+}
+
+/** Trims or extends the end of a base clip; later clips follow it. */
+export function trimBaseEnd(doc: Doc, key: string, endMs: number): Doc {
+  const clip = baseClips(doc).find((c) => c.key === key);
+  if (!clip) return doc;
+  const end = Math.max(endMs, clip.startTimeMs + MIN_ELEMENT_MS);
+  const delta = end - clip.endTimeMs;
+  if (!delta) return doc;
+  const edited = withSource(
+    { ...clip, endTimeMs: end },
+    clip.properties.sourceStartMs ?? 0,
+    end - clip.startTimeMs
+  );
+  return ripple(
+    doc,
+    clip,
+    edited,
+    clip.endTimeMs,
+    delta,
+    delta < 0 ? [end, clip.endTimeMs] : null,
+    0
+  );
+}
+
+/** Removes a base clip and closes the gap. The last clip can't be removed. */
+export function removeBaseClip(doc: Doc, key: string): Doc {
+  const clips = baseClips(doc);
+  const clip = clips.find((c) => c.key === key);
+  if (!clip || clips.length < 2) return doc;
+  return ripple(
+    doc,
+    clip,
+    null,
+    clip.endTimeMs,
+    clip.startTimeMs - clip.endTimeMs,
+    [clip.startTimeMs, clip.endTimeMs],
+    0
+  );
+}
+
+/** Whether `t` falls far enough inside the element to split it there. */
+export function canSplit(el: El, t: number) {
+  return (
+    t - el.startTimeMs >= MIN_ELEMENT_MS && el.endTimeMs - t >= MIN_ELEMENT_MS
+  );
+}
+
+/**
+ * Splits an element in two at `t`. Media halves keep their place in the
+ * source; captions divide their word timings between the halves.
+ */
+export function splitElement(doc: Doc, key: string, t: number): Doc {
+  const found = findElement(doc, key);
+  if (!found || !canSplit(found.el, t)) return doc;
+  const el = found.el;
+  const at = Math.round(t);
+  const offset = at - el.startTimeMs;
+  let first: El = { ...el, endTimeMs: at };
+  let second: El = { ...el, key: newKey(), startTimeMs: at };
+
+  if (el.type === 'video' || el.type === 'audio') {
+    const sourceStart = el.properties.sourceStartMs ?? 0;
+    first = withSource(first, sourceStart, offset);
+    second = withSource(second, sourceStart + offset, el.endTimeMs - at);
+  } else if (el.type === 'text' && Array.isArray(el.properties.words)) {
+    const words = el.properties.words as Array<{
+      word?: string;
+      text?: string;
+      startMs?: number;
+    }>;
+    const before = words.filter((w) => (w.startMs ?? 0) < at);
+    const after = words.filter((w) => (w.startMs ?? 0) >= at);
+    const join = (list: typeof words) =>
+      list
+        .map((w) => w.word ?? w.text ?? '')
+        .join(' ')
+        .replace(/\s+/g, ' ')
+        .trim();
+    first = {
+      ...first,
+      properties: {
+        ...el.properties,
+        words: before,
+        text: join(before) || el.properties.text
+      }
+    };
+    second = {
+      ...second,
+      properties: {
+        ...el.properties,
+        words: after,
+        text: join(after) || el.properties.text
+      }
+    };
+  }
+
+  return {
+    tracks: doc.tracks.map((tr) =>
+      tr.key === found.track.key
+        ? {
+            ...tr,
+            elements: tr.elements.flatMap((e) =>
+              e.key === key ? [first, second] : [e]
+            )
+          }
+        : tr
+    )
   };
 }
 

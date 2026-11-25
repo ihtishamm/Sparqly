@@ -71,6 +71,8 @@ const CODE_MESSAGES: Record<string, string> = {
   cannotCancel: 'This post is publishing or already published.',
   invalidHashtag: 'Hashtags can’t contain spaces or #.',
   mustBeNotEmpty: 'This field is required.',
+  unsupportedFileType: 'Upload an MP4 video, or MP3, M4A or WAV audio.',
+  clipsMustBeContiguous: 'Clips on the main track must follow each other.',
   'Insufficient credits':
     'You’re out of credits. Top up in Billing to continue.'
 };
@@ -130,6 +132,8 @@ export function toApiError(status: number, body: unknown): ApiError {
     message = 'You don’t have permission to do that.';
   } else if (status === 404) {
     message = 'Not found.';
+  } else if (status === 413) {
+    message = 'This file is too large. The limit is 500 MB.';
   } else if (status === 429) {
     message = 'Too many attempts. Wait a minute and try again.';
   } else if (status >= 500) {

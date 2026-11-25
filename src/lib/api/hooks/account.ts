@@ -5,7 +5,9 @@ import { api } from '../client';
 import { keys } from '../keys';
 import type {
   Activity,
+  AccountPerformance,
   AnalyticsOverview,
+  PostPerformance,
   CreditTransaction,
   Paginated,
   Plan,
@@ -68,6 +70,30 @@ export function useAnalytics(startDate: string, endDate: string) {
     queryFn: ({ signal }) =>
       api.get<AnalyticsOverview>(
         '/v1/analytics/overview',
+        { startDate, endDate },
+        signal
+      )
+  });
+}
+
+export function usePostPerformance(startDate: string, endDate: string) {
+  return useQuery({
+    queryKey: keys.analyticsPosts(startDate, endDate),
+    queryFn: ({ signal }) =>
+      api.get<PostPerformance[]>(
+        '/v1/analytics/posts',
+        { startDate, endDate },
+        signal
+      )
+  });
+}
+
+export function useAccountPerformance(startDate: string, endDate: string) {
+  return useQuery({
+    queryKey: keys.analyticsAccounts(startDate, endDate),
+    queryFn: ({ signal }) =>
+      api.get<AccountPerformance[]>(
+        '/v1/analytics/accounts',
         { startDate, endDate },
         signal
       )

@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
-import { useSearchParams } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -32,6 +32,7 @@ type Values = z.infer<typeof schema>;
 
 export function SignInForm() {
   const params = useSearchParams();
+  const router = useRouter();
   const returnTo = safeReturnPath(params.get('callbackUrl'));
   const signIn = useSignIn();
   const resend = useResendConfirmation();
@@ -46,7 +47,8 @@ export function SignInForm() {
     setUnconfirmed(null);
     try {
       await signIn.mutateAsync(values);
-      window.location.assign(returnTo);
+      // Client-side, so the access token held in memory is kept.
+      router.replace(returnTo);
     } catch (error) {
       if (error instanceof ApiError && error.codes.email === 'notActive') {
         setUnconfirmed(values.email);

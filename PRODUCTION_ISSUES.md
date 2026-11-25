@@ -101,13 +101,25 @@ That testing found and fixed:
 - The selected state of segmented toggles wasn't visible.
 - Deleting a project refetched the deleted project.
 
+**Done since (25 Nov 2026):**
+- **Tests and CI.** Vitest unit tests for the editor model, error mapping, audio sync and analytics sorting (`pnpm test`). A GitHub Actions workflow runs a check for injected code, then lint, typecheck, tests and build, with dependency install scripts turned off.
+- **File upload for repurposing.** Repurpose takes a link or a file: MP4 video, or MP3, M4A or WAV audio, up to 500 MB (`UPLOAD_MAX_MB`), with upload progress. The API checks each file's leading bytes and stores it as the project's `original` asset (`POST /v1/content-assets/upload`).
+- **Studio controls.** Tone, visual style, aspect ratio, voice and length, per output type. The API checks each value against a fixed list before it reaches a prompt or ffmpeg. Generated videos render at the chosen ratio.
+- **Per-post and per-account analytics.** The Analytics page has tables by account and by post, sortable, with views gained in the selected range (`GET /v1/analytics/posts` and `/accounts`).
+- **Editor.**
+  - Split at the playhead (S): clips, captions (words are divided between the halves) and audio.
+  - The main track holds several clips played back to back. Trims and deletes ripple what follows, and captions of cut footage go with it.
+  - The renderer joins the clips. The API rejects gaps and overlaps (`clipsMustBeContiguous`).
+  - Audio overlays play in the preview, kept in sync with the playhead.
+- **Tokens out of localStorage.**
+  - The refresh token is an HttpOnly cookie scoped to `/api/v1/auth`. The access token lives in memory, and a reload gets a new one from the cookie.
+  - Refreshes are serialised across tabs. A just-replaced refresh token stays valid for 30 s, so a reload that drops the response doesn't sign the user out.
+  - `AUTH_COOKIE_SAMESITE=none` is for deployments where the web app and API are on different sites.
+
 **Still open:**
-- No frontend tests or CI (P1).
-- No file upload for repurposing: links only (P1).
-- Studio has no style, ratio or tone controls; it sends the prompt and title only (P1).
-- No per-post or per-account analytics views (P1).
-- The editor doesn't preview audio overlays and supports a single base clip (no split).
-- The access token is still kept in localStorage (P2). With no HTML rendering of AI output the XSS risk is lower, but moving to HttpOnly cookies needs backend work.
+- No browser (end-to-end) tests in CI. The Playwright flows used to verify this work need a seeded database, so they are run by hand.
+- Clips on the main track come from one source file. There is no way to add a second video.
+- Audio overlays above 100% volume play at 100% in the preview (browser limit); the export applies the full level.
 
 ---
 

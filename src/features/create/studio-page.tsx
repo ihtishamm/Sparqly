@@ -13,6 +13,13 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue
+} from '@/components/ui/select';
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import { PageBody, PageHeader } from '@/components/common/page-header';
 import {
@@ -26,7 +33,8 @@ import { ApiError, errorMessage } from '@/lib/api/errors';
 import {
   useJobs,
   useStartGeneration,
-  type StudioJobType
+  type StudioJobType,
+  type StudioOptions
 } from '@/lib/api/hooks/jobs';
 import type { AiJob } from '@/lib/api/types';
 import { relativeTime } from '@/lib/format';
@@ -59,6 +67,73 @@ const KINDS: Array<{
       'A practical guide to repurposing podcasts for LinkedIn, for small agencies…'
   }
 ];
+
+type OptionKey = keyof StudioOptions;
+
+const OPTION_FIELDS: Record<
+  OptionKey,
+  { label: string; choices: Array<{ value: string; label: string }> }
+> = {
+  tone: {
+    label: 'Tone',
+    choices: [
+      { value: 'neutral', label: 'Neutral' },
+      { value: 'friendly', label: 'Friendly' },
+      { value: 'professional', label: 'Professional' },
+      { value: 'playful', label: 'Playful' },
+      { value: 'bold', label: 'Bold' }
+    ]
+  },
+  style: {
+    label: 'Visual style',
+    choices: [
+      { value: 'photo', label: 'Photo' },
+      { value: 'illustration', label: 'Illustration' },
+      { value: '3d', label: '3D render' },
+      { value: 'minimal', label: 'Minimal' },
+      { value: 'cinematic', label: 'Cinematic' }
+    ]
+  },
+  aspectRatio: {
+    label: 'Aspect ratio',
+    choices: [
+      { value: '9:16', label: '9:16 · Vertical' },
+      { value: '1:1', label: '1:1 · Square' },
+      { value: '16:9', label: '16:9 · Landscape' }
+    ]
+  },
+  voice: {
+    label: 'Voice',
+    choices: [
+      { value: 'alloy', label: 'Alloy · balanced' },
+      { value: 'echo', label: 'Echo · calm' },
+      { value: 'fable', label: 'Fable · expressive' },
+      { value: 'onyx', label: 'Onyx · deep' },
+      { value: 'nova', label: 'Nova · bright' },
+      { value: 'shimmer', label: 'Shimmer · soft' }
+    ]
+  },
+  length: {
+    label: 'Length',
+    choices: [
+      { value: 'short', label: 'Short · ~400 words' },
+      { value: 'medium', label: 'Medium · ~900 words' },
+      { value: 'long', label: 'Long · ~1,600 words' }
+    ]
+  }
+};
+
+/** Which options each kind uses, and their defaults. */
+const KIND_OPTIONS: Record<StudioJobType, StudioOptions> = {
+  video_generation: {
+    tone: 'neutral',
+    style: 'cinematic',
+    aspectRatio: '9:16',
+    voice: 'alloy'
+  },
+  image_generation: { style: 'photo', aspectRatio: '1:1' },
+  blog_generation: { tone: 'professional', length: 'medium' }
+};
 
 const KIND_LABEL: Record<string, string> = {
   video_generation: 'Video',
@@ -107,6 +182,8 @@ export function StudioPage() {
   const [kind, setKind] = useState<StudioJobType>('video_generation');
   const [prompt, setPrompt] = useState('');
   const [title, setTitle] = useState('');
+  const [options, setOptions] =
+    useState<Record<StudioJobType, StudioOptions>>(KIND_OPTIONS);
   const [error, setError] = useState<string | null>(null);
   const [outOfCredits, setOutOfCredits] = useState(false);
   const start = useStartGeneration();
@@ -127,7 +204,8 @@ export function StudioPage() {
       await start.mutateAsync({
         jobType: kind,
         prompt: prompt.trim(),
-        title: title.trim() || undefined
+        title: title.trim() || undefined,
+        options: options[kind]
       });
       setPrompt('');
       setTitle('');
@@ -184,6 +262,37 @@ export function StudioPage() {
               }
             }}
           />
+        </div>
+        <div className='grid gap-3 sm:grid-cols-2'>
+          {(Object.keys(options[kind]) as OptionKey[]).map((key) => {
+            const field = OPTION_FIELDS[key];
+            const id = `option-${key}`;
+            return (
+              <div key={key} className='space-y-1.5'>
+                <Label htmlFor={id}>{field.label}</Label>
+                <Select
+                  value={options[kind][key]}
+                  onValueChange={(value) =>
+                    setOptions((all) => ({
+                      ...all,
+                      [kind]: { ...all[kind], [key]: value }
+                    }))
+                  }
+                >
+                  <SelectTrigger id={id} className='w-full'>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {field.choices.map((choice) => (
+                      <SelectItem key={choice.value} value={choice.value}>
+                        {choice.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            );
+          })}
         </div>
         <div className='space-y-1.5'>
           <Label htmlFor='title'>

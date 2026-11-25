@@ -11,7 +11,10 @@ import { MIN_ELEMENT_MS, type El } from './model';
 
 type Props = {
   el: El | null;
+  /** A base clip (first video track). */
   isMain: boolean;
+  /** False for the only base clip: the timeline needs one. */
+  canDelete: boolean;
   width: number;
   height: number;
   /** Records a history step, unlike `onPreview`. */
@@ -173,7 +176,7 @@ export function Inspector(props: Props) {
             {duration(el.endTimeMs - el.startTimeMs)}
           </p>
         </div>
-        {!isMain && (
+        {props.canDelete && (
           <Button
             variant='ghost'
             size='icon-sm'
@@ -332,8 +335,8 @@ export function Inspector(props: Props) {
 
       {isMain ? (
         <p className='text-muted-foreground bg-secondary rounded-lg px-3 py-2 text-xs'>
-          Drag the clip’s edges to trim it. Captions move with the audio when
-          you trim the start. Source{' '}
+          Drag the clip’s edges to trim it, or press S to split it at the
+          playhead. Later clips and captions move with it. Source{' '}
           {timecode(el.properties.sourceStartMs ?? 0)} –{' '}
           {timecode(el.properties.sourceEndMs ?? el.endTimeMs)}.
         </p>

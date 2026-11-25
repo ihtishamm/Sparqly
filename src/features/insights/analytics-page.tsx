@@ -18,6 +18,7 @@ import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import { PageBody, PageHeader } from '@/components/common/page-header';
 import { EmptyState, ErrorState } from '@/components/common/states';
 import { useAnalytics, useSyncAnalytics } from '@/lib/api/hooks/account';
+import { PerformanceTables } from './performance-tables';
 import { compactNumber, relativeTime } from '@/lib/format';
 import { platformMeta } from '@/lib/platforms';
 import { cn } from '@/lib/utils';
@@ -321,6 +322,8 @@ export function AnalyticsPage() {
               )}
             </section>
           </div>
+
+          <PerformanceTables startDate={startDate} endDate={endDate} />
         </>
       )}
     </PageBody>

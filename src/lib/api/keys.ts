@@ -41,6 +41,10 @@ export const keys = {
 
   analytics: (startDate: string, endDate: string) =>
     ['analytics', 'overview', { startDate, endDate }] as const,
+  analyticsPosts: (startDate: string, endDate: string) =>
+    ['analytics', 'posts', { startDate, endDate }] as const,
+  analyticsAccounts: (startDate: string, endDate: string) =>
+    ['analytics', 'accounts', { startDate, endDate }] as const,
 
   activity: (limit: number) => ['activity', { limit }] as const
 };

@@ -6,7 +6,7 @@ import {
   useQuery,
   useQueryClient
 } from '@tanstack/react-query';
-import { api } from '../client';
+import { api, upload } from '../client';
 import { keys } from '../keys';
 import type {
   AiJob,
@@ -45,9 +45,10 @@ export function useProjects(search = '') {
   });
 }
 
-export function useProject(id: string) {
+export function useProject(id: string, options: { enabled?: boolean } = {}) {
   return useQuery({
     queryKey: keys.projects.detail(id),
+    enabled: options.enabled ?? true,
     queryFn: ({ signal }) =>
       api.get<ProjectDetail>(`/v1/projects/${id}`, undefined, signal),
     refetchInterval: (query) => {
@@ -105,8 +106,8 @@ export function useDeleteProject() {
 export type OutputType = 'short-clips' | 'blog-post' | 'linkedin' | 'threads';
 
 /**
- * Starts a repurpose run: creates the project (content) for the source URL,
- * then queues the AI job on it. Costs one credit.
+ * Starts a repurpose run: creates the project (content) from the source URL
+ * or an uploaded file, then queues the AI job on it. Costs one credit.
  */
 export function useStartRepurpose() {
   const queryClient = useQueryClient();
@@ -114,17 +115,32 @@ export function useStartRepurpose() {
   return useMutation({
     meta: { errorTitle: false },
     mutationFn: async (input: {
-      sourceUrl: string;
+      /** A public link, or a file to upload instead. */
+      sourceUrl?: string;
+      file?: File;
       title?: string;
       outputs: OutputType[];
       tone: string;
+      onUploadProgress?: (fraction: number) => void;
     }) => {
-      const content = await api.post<{ id: string }>('/v1/contents', {
-        title: input.title,
-        sourceUrl: input.sourceUrl,
-        sourceType: 'url',
-        type: 'video'
-      });
+      let content: { id: string };
+      if (input.file) {
+        const form = new FormData();
+        form.append('file', input.file);
+        if (input.title) form.append('title', input.title);
+        content = await upload<{ id: string }>(
+          '/v1/content-assets/upload',
+          form,
+          { onProgress: input.onUploadProgress }
+        );
+      } else {
+        content = await api.post<{ id: string }>('/v1/contents', {
+          title: input.title,
+          sourceUrl: input.sourceUrl,
+          sourceType: 'url',
+          type: 'video'
+        });
+      }
       try {
         await api.post<AiJob>('/v1/ai-jobs', {
           jobType: 'repurpose',

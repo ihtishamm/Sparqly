@@ -17,6 +17,7 @@ import {
   Play,
   Plus,
   Redo2,
+  Scissors,
   SkipBack,
   Type,
   Undo2,
@@ -60,18 +61,26 @@ import { cn } from '@/lib/utils';
 import { Inspector } from './inspector';
 import {
   addElement,
+  baseClips,
+  canSplit,
+  clipAt,
   docDuration,
   findElement,
   fromComposition,
+  isBaseClip,
   mainElement,
   newKey,
+  removeBaseClip,
   removeElement,
+  sourceSecondsAt,
+  splitElement,
   toSaveBody,
   updateElement,
   useHistory,
   type Doc,
   type El
 } from './model';
+import { AudioLayer } from './audio-layer';
 import { Preview } from './preview';
 import { Timeline } from './timeline';
 
@@ -83,6 +92,14 @@ function isTyping(target: EventTarget | null) {
     !!el &&
     (el.isContentEditable ||
       ['INPUT', 'TEXTAREA', 'SELECT'].includes(el.tagName))
+  );
+}
+
+/** Keys inside an open menu or dialog belong to it, not the editor. */
+function inOverlay(target: EventTarget | null) {
+  const el = target as HTMLElement | null;
+  return !!el?.closest?.(
+    '[role=menu],[role=dialog],[role=alertdialog],[role=listbox]'
   );
 }
 
@@ -352,14 +369,11 @@ function Editor({ composition }: { composition: EditorComposition }) {
     (a) => a.type === 'audio' || a.mimeType?.startsWith('audio/')
   );
 
-  /* Playback: the base clip's video drives the clock while playing. */
-  const sourceTime = useCallback(
-    (t: number) =>
-      ((main?.properties.sourceStartMs ?? 0) + t - (main?.startTimeMs ?? 0)) /
-      1000,
-    [main]
-  );
-
+  /*
+   * Playback: the base clips' video drives the clock while playing. At the
+   * end of a clip the video jumps to where the next clip starts in the
+   * source, so a split clip plays like the export.
+   */
   useEffect(() => {
     const video = videoRef.current;
     if (!playing) {
@@ -369,17 +383,38 @@ function Editor({ composition }: { composition: EditorComposition }) {
     let raf = 0;
     const startedAt = performance.now();
     const startMs = timeMs >= durationMs ? 0 : timeMs;
-    if (video) {
-      video.currentTime = sourceTime(startMs);
+    const clips = baseClips(doc);
+    let clip = clipAt(doc, startMs);
+    if (video && clip) {
+      video.currentTime = sourceSecondsAt(clip, startMs);
       void video.play().catch(() => setPlaying(false));
     }
     const tick = () => {
-      const t =
-        video && main
-          ? video.currentTime * 1000 -
-            (main.properties.sourceStartMs ?? 0) +
-            main.startTimeMs
-          : startMs + (performance.now() - startedAt);
+      let t: number;
+      if (video && clip) {
+        t =
+          clip.startTimeMs +
+          video.currentTime * 1000 -
+          (clip.properties.sourceStartMs ?? 0);
+        if (t >= clip.endTimeMs) {
+          const index = clips.findIndex((c) => c.key === clip!.key);
+          const next = clips[index + 1];
+          if (next) {
+            clip = next;
+            // A plain split continues where the last clip ended; seeking
+            // anyway would stall playback while the video re-buffers.
+            const target = sourceSecondsAt(next, next.startTimeMs);
+            if (Math.abs(video.currentTime - target) > 0.08) {
+              video.currentTime = target;
+            }
+            t = next.startTimeMs;
+          } else {
+            t = durationMs;
+          }
+        }
+      } else {
+        t = startMs + (performance.now() - startedAt);
+      }
       if (t >= durationMs) {
         setTimeMs(durationMs);
         setPlaying(false);
@@ -399,23 +434,21 @@ function Editor({ composition }: { composition: EditorComposition }) {
       const t = Math.max(0, Math.min(ms, durationMs));
       setTimeMs(t);
       const video = videoRef.current;
-      if (video && main) {
-        const clipT = Math.min(t, main.endTimeMs - 1);
-        video.currentTime = sourceTime(clipT);
-      }
+      const clip = clipAt(doc, t);
+      if (video && clip) video.currentTime = sourceSecondsAt(clip, t);
     },
-    [durationMs, main, sourceTime]
+    [doc, durationMs]
   );
 
-  // Keep the paused frame in step with edits (e.g. trimming the start).
+  // Keep the paused frame in step with edits (e.g. trimming a clip's start).
+  const frameClip = clipAt(doc, timeMs);
+  const frameSeconds = frameClip ? sourceSecondsAt(frameClip, timeMs) : null;
   useEffect(() => {
-    if (!playing && videoRef.current && main) {
-      videoRef.current.currentTime = sourceTime(
-        Math.min(timeMs, main.endTimeMs - 1)
-      );
+    if (!playing && videoRef.current && frameSeconds !== null) {
+      videoRef.current.currentTime = frameSeconds;
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [main?.properties.sourceStartMs]);
+  }, [frameSeconds]);
 
   /* Editing */
   const patchSelected = (patch: (el: El) => El, record = true) => {
@@ -423,11 +456,32 @@ function Editor({ composition }: { composition: EditorComposition }) {
     history.set((d) => updateElement(d, selected, patch), record);
   };
 
+  const clipCount = baseClips(doc).length;
   const deleteSelected = useCallback(() => {
-    if (!selected || selected === main?.key) return;
-    history.set((d) => removeElement(d, selected));
+    if (!selected) return;
+    if (isBaseClip(doc, selected)) {
+      // The timeline needs at least one clip.
+      if (clipCount < 2) return;
+      history.set((d) => removeBaseClip(d, selected));
+    } else {
+      history.set((d) => removeElement(d, selected));
+    }
     setSelected(null);
-  }, [history, main?.key, selected]);
+  }, [clipCount, doc, history, selected]);
+
+  /** The selected element, or else the clip under the playhead. */
+  const splitTarget = (() => {
+    const chosen = findElement(doc, selected)?.el;
+    if (chosen) return canSplit(chosen, timeMs) ? chosen : null;
+    const clip = clipAt(doc, timeMs);
+    return clip && canSplit(clip, timeMs) ? clip : null;
+  })();
+
+  const split = useCallback(() => {
+    if (!splitTarget) return;
+    const key = splitTarget.key;
+    history.set((d) => splitElement(d, key, timeMs));
+  }, [history, splitTarget, timeMs]);
 
   function add(
     el: Omit<El, 'key' | 'startTimeMs' | 'endTimeMs'>,
@@ -509,7 +563,12 @@ function Editor({ composition }: { composition: EditorComposition }) {
         void flush().catch(() => undefined);
         return;
       }
-      if (isTyping(e.target)) return;
+      if (isTyping(e.target) || inOverlay(e.target)) return;
+      // A focused slider (zoom, volume) uses the arrow keys itself.
+      const onSlider = !!(e.target as HTMLElement | null)?.closest?.(
+        '[role=slider]'
+      );
+      if (onSlider && /^(Arrow|Home|End|Page)/.test(e.key)) return;
       if (mod && e.key.toLowerCase() === 'z') {
         e.preventDefault();
         if (e.shiftKey) history.redo();
@@ -518,8 +577,14 @@ function Editor({ composition }: { composition: EditorComposition }) {
         e.preventDefault();
         history.redo();
       } else if (e.key === ' ') {
+        // Space always plays/pauses: stop a focused button (e.g. the Add
+        // menu's trigger) from also handling it.
         e.preventDefault();
+        e.stopPropagation();
         setPlaying((p) => !p);
+      } else if (!mod && e.key.toLowerCase() === 's') {
+        e.preventDefault();
+        split();
       } else if (e.key === 'Delete' || e.key === 'Backspace') {
         e.preventDefault();
         deleteSelected();
@@ -535,9 +600,10 @@ function Editor({ composition }: { composition: EditorComposition }) {
         seek(0);
       }
     }
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-  }, [deleteSelected, flush, history, seek, timeMs]);
+    // Capture phase, so the editor sees keys before focused controls do.
+    window.addEventListener('keydown', onKey, true);
+    return () => window.removeEventListener('keydown', onKey, true);
+  }, [deleteSelected, flush, history, seek, split, timeMs]);
 
   async function back() {
     const href = composition.contentId
@@ -672,7 +738,11 @@ function Editor({ composition }: { composition: EditorComposition }) {
         >
           <Inspector
             el={selection?.el ?? null}
-            isMain={selection?.el.key === main?.key}
+            isMain={isBaseClip(doc, selection?.el.key ?? null)}
+            canDelete={
+              !!selection &&
+              (!isBaseClip(doc, selection.el.key) || clipCount > 1)
+            }
             width={W}
             height={H}
             onChange={(p) => patchSelected(p)}
@@ -692,7 +762,12 @@ function Editor({ composition }: { composition: EditorComposition }) {
               <Plus /> Add
             </Button>
           </DropdownMenuTrigger>
-          <DropdownMenuContent align='start' className='w-56'>
+          <DropdownMenuContent
+            align='start'
+            className='w-56'
+            // Return focus to the editor, not the trigger, so Space plays.
+            onCloseAutoFocus={(e) => e.preventDefault()}
+          >
             <DropdownMenuItem onSelect={addText}>
               <Type /> Text
             </DropdownMenuItem>
@@ -734,6 +809,29 @@ function Editor({ composition }: { composition: EditorComposition }) {
             )}
           </DropdownMenuContent>
         </DropdownMenu>
+
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button
+              variant='ghost'
+              size='sm'
+              onClick={split}
+              disabled={!splitTarget}
+            >
+              <Scissors /> Split
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent>
+            <Shortcut
+              label={
+                splitTarget
+                  ? 'Split at the playhead'
+                  : 'Move the playhead inside a clip to split it'
+              }
+              keys='S'
+            />
+          </TooltipContent>
+        </Tooltip>
 
         <div className='mx-auto flex items-center gap-1'>
           <Button
@@ -778,6 +876,13 @@ function Editor({ composition }: { composition: EditorComposition }) {
           </Button>
         </div>
       </div>
+
+      <AudioLayer
+        doc={doc}
+        assets={composition.assets}
+        timeMs={timeMs}
+        playing={playing}
+      />
 
       {/* Timeline */}
       <div

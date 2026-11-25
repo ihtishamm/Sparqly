@@ -33,6 +33,15 @@ export type StudioJobType =
   | 'image_generation'
   | 'blog_generation';
 
+/** Generation options; the API checks each against the same lists. */
+export type StudioOptions = {
+  tone?: 'neutral' | 'friendly' | 'professional' | 'playful' | 'bold';
+  style?: 'photo' | 'illustration' | '3d' | 'minimal' | 'cinematic';
+  aspectRatio?: '9:16' | '1:1' | '16:9';
+  voice?: 'alloy' | 'echo' | 'fable' | 'onyx' | 'nova' | 'shimmer';
+  length?: 'short' | 'medium' | 'long';
+};
+
 /** Starts a generation job from a prompt. Costs one credit. */
 export function useStartGeneration() {
   const queryClient = useQueryClient();
@@ -43,12 +52,13 @@ export function useStartGeneration() {
       jobType: StudioJobType;
       prompt: string;
       title?: string;
+      options?: StudioOptions;
     }) =>
       api.post<AiJob>('/v1/ai-jobs', {
         jobType: input.jobType,
         status: 'pending',
         user: { id: user?.id },
-        input: { prompt: input.prompt, title: input.title }
+        input: { ...input.options, prompt: input.prompt, title: input.title }
       }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: keys.jobs.all });

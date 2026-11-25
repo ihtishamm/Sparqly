@@ -6,9 +6,10 @@ import { timecode } from '@/lib/format';
 import { cn } from '@/lib/utils';
 import {
   MIN_ELEMENT_MS,
-  mainElement,
+  baseClips,
   shiftElement,
-  trimMainStart,
+  trimBaseEnd,
+  trimBaseStart,
   updateElement,
   type Doc,
   type El
@@ -56,7 +57,7 @@ function tickStep(pxPerMs: number) {
 export function Timeline(props: Props) {
   const { doc, pxPerMs, timeMs, selected } = props;
   const lanes = useRef<HTMLDivElement>(null);
-  const main = mainElement(doc);
+  const baseKeys = new Set(baseClips(doc).map((c) => c.key));
   const furthest = doc.tracks.reduce(
     (max, t) => t.elements.reduce((m, e) => Math.max(m, e.endTimeMs), max),
     props.durationMs
@@ -85,8 +86,9 @@ export function Timeline(props: Props) {
   function startDrag(e: React.PointerEvent, el: El, mode: Mode) {
     e.stopPropagation();
     props.onSelect(el.key);
-    const isMain = el.key === main?.key;
-    if (isMain && mode === 'move') return; // The base clip always starts at 0.
+    const isBase = baseKeys.has(el.key);
+    // Base clips play back to back; reorder by trimming or splitting.
+    if (isBase && mode === 'move') return;
 
     const snapshot = doc;
     const startX = e.clientX;
@@ -121,13 +123,13 @@ export function Timeline(props: Props) {
       }
 
       if (mode === 'start') {
-        if (isMain) {
+        if (isBase) {
           const sourceStart = el.properties.sourceStartMs ?? 0;
           const d = Math.min(
             Math.max(raw, -sourceStart),
             el.endTimeMs - el.startTimeMs - MIN_ELEMENT_MS
           );
-          props.onChange(trimMainStart(snapshot, Math.round(d)));
+          props.onChange(trimBaseStart(snapshot, el.key, Math.round(d)));
           return;
         }
         const start = Math.min(
@@ -159,25 +161,21 @@ export function Timeline(props: Props) {
         snap(el.endTimeMs + raw),
         el.startTimeMs + MIN_ELEMENT_MS
       );
-      if (isMain && props.sourceDurationMs) {
-        const sourceStart = el.properties.sourceStartMs ?? 0;
-        end = Math.min(
-          end,
-          el.startTimeMs + props.sourceDurationMs - sourceStart
-        );
+      if (isBase) {
+        // Don't snap a base clip's end: it would jump to its own neighbour.
+        end = Math.max(el.endTimeMs + raw, el.startTimeMs + MIN_ELEMENT_MS);
+        if (props.sourceDurationMs) {
+          const sourceStart = el.properties.sourceStartMs ?? 0;
+          end = Math.min(
+            end,
+            el.startTimeMs + props.sourceDurationMs - sourceStart
+          );
+        }
+        props.onChange(trimBaseEnd(snapshot, el.key, Math.round(end)));
+        return;
       }
       props.onChange(
-        updateElement(snapshot, el.key, (x) => ({
-          ...x,
-          endTimeMs: end,
-          properties: isMain
-            ? {
-                ...x.properties,
-                sourceEndMs:
-                  (x.properties.sourceStartMs ?? 0) + (end - x.startTimeMs)
-              }
-            : x.properties
-        }))
+        updateElement(snapshot, el.key, (x) => ({ ...x, endTimeMs: end }))
       );
     };
     const up = () => {
@@ -241,7 +239,7 @@ export function Timeline(props: Props) {
               }}
             >
               {t.elements.map((el) => {
-                const isMain = el.key === main?.key;
+                const isMain = baseKeys.has(el.key);
                 const label =
                   el.type === 'text'
                     ? el.properties.text || 'Text'

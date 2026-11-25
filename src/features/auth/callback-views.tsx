@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
-import { useSearchParams } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { CircleAlert, CircleCheck, LoaderCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useConfirmEmail, useGoogleSignIn } from '@/lib/api/hooks/auth';
@@ -102,6 +102,7 @@ export function ConfirmEmailView({ newEmail = false }: { newEmail?: boolean }) {
 export function GoogleCallbackView() {
   const params = useSearchParams();
   const signIn = useGoogleSignIn();
+  const router = useRouter();
   const started = useRef(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -129,12 +130,13 @@ export function GoogleCallbackView() {
             sessionStorage.getItem(GOOGLE_RETURN_KEY)
           );
           sessionStorage.removeItem(GOOGLE_RETURN_KEY);
-          window.location.assign(returnTo);
+          // Client-side, so the access token held in memory is kept.
+          router.replace(returnTo);
         },
         onError: (e) => setError(errorMessage(e))
       }
     );
-  }, [params, signIn]);
+  }, [params, router, signIn]);
 
   return (
     <AuthCard title='Signing in with Google'>

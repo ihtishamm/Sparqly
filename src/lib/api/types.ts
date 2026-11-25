@@ -15,9 +15,9 @@ export type User = {
   createdAt: string;
 };
 
+/** The API also sets the refresh token as an HttpOnly cookie. */
 export type LoginResponse = {
   token: string;
-  refreshToken: string;
   tokenExpires: number;
   user: User;
 };
@@ -262,6 +262,40 @@ export type CreditTransaction = {
 };
 
 /* ------------------------------ Analytics ------------------------------- */
+
+/** A published post with its latest totals in the selected range. */
+export type PostPerformance = {
+  id: string;
+  title: string | null;
+  contentId: string | null;
+  variantType: string | null;
+  platform: string;
+  accountId: string;
+  accountName: string | null;
+  postUrl: string | null;
+  publishedAt: string;
+  views: number;
+  likes: number;
+  comments: number;
+  shares: number;
+  /** Views gained within the range. */
+  viewsInRange: number;
+  lastSyncedAt: string | null;
+};
+
+export type AccountPerformance = {
+  accountId: string;
+  platform: string;
+  accountName: string | null;
+  posts: number;
+  views: number;
+  likes: number;
+  comments: number;
+  shares: number;
+  viewsInRange: number;
+  engagementRate: number;
+  topPostId: string | null;
+};
 
 export type AnalyticsOverview = {
   kpis: {

@@ -24,32 +24,49 @@ type RequestOptions = {
 let refreshing: Promise<string | null> | null = null;
 
 /**
- * Exchanges the refresh token for a new pair. Concurrent callers share one
- * request, so a burst of 401s triggers a single refresh.
+ * Gets a new access token using the HttpOnly refresh cookie. Concurrent
+ * callers share one request, and a Web Lock serialises refreshes across
+ * tabs: the refresh token rotates on use, so two tabs sending the same
+ * cookie at once would sign one of them out.
  */
 function refreshSession(): Promise<string | null> {
   if (refreshing) return refreshing;
 
-  refreshing = (async () => {
-    const { refreshToken, setSession } = useAuthStore.getState();
-    if (!refreshToken) return null;
+  const run = async () => {
     try {
       const response = await fetch(`${API_URL}/v1/auth/refresh`, {
         method: 'POST',
-        headers: { Authorization: `Bearer ${refreshToken}` }
+        credentials: 'include'
       });
       if (!response.ok) return null;
       const session = await response.json();
-      setSession(session);
+      useAuthStore.getState().setSession({
+        token: session.token,
+        tokenExpires: session.tokenExpires
+      });
       return session.token as string;
     } catch {
       return null;
     }
-  })().finally(() => {
-    refreshing = null;
-  });
+  };
+
+  const locks = typeof navigator !== 'undefined' ? navigator.locks : undefined;
+  refreshing = (locks ? locks.request('sparqly-refresh', run) : run()).finally(
+    () => {
+      refreshing = null;
+    }
+  );
 
   return refreshing;
+}
+
+/**
+ * Restores the session after a reload. Returns false when the refresh cookie
+ * is missing or no longer valid.
+ */
+export async function restoreSession(): Promise<boolean> {
+  if (useAuthStore.getState().token) return true;
+  return (await refreshSession()) !== null;
 }
 
 /** Ends the local session and sends the user to sign in, keeping their place. */
@@ -65,7 +82,7 @@ function endSession() {
 
 async function validToken(): Promise<string | null> {
   const { token, tokenExpires } = useAuthStore.getState();
-  if (!token) return null;
+  if (!token) return refreshSession();
   if (tokenExpires && tokenExpires - Date.now() < REFRESH_MARGIN_MS) {
     return (await refreshSession()) ?? token;
   }
@@ -99,13 +116,20 @@ async function send(
     return await fetch(buildUrl(path, options.params), {
       method: options.method ?? 'GET',
       headers: {
-        ...(options.body !== undefined
+        // FormData sets its own multipart boundary.
+        ...(options.body !== undefined && !(options.body instanceof FormData)
           ? { 'Content-Type': 'application/json' }
           : {}),
         ...(token ? { Authorization: `Bearer ${token}` } : {})
       },
       body:
-        options.body !== undefined ? JSON.stringify(options.body) : undefined,
+        options.body instanceof FormData
+          ? options.body
+          : options.body !== undefined
+            ? JSON.stringify(options.body)
+            : undefined,
+      // Sign-in, refresh and sign-out set or clear the refresh cookie.
+      credentials: 'include',
       signal: controller.signal
     });
   } catch (error) {
@@ -139,6 +163,10 @@ export async function request<T>(
   options: RequestOptions = {}
 ): Promise<T> {
   const token = options.anonymous ? null : await validToken();
+  if (!options.anonymous && !token) {
+    endSession();
+    throw toApiError(401, undefined);
+  }
   let response = await send(path, options, token);
 
   if (response.status === 401 && !options.anonymous && token) {
@@ -170,9 +198,75 @@ export const api = {
   delete: <T = void>(path: string) => request<T>(path, { method: 'DELETE' })
 };
 
-/** Best-effort server logout, then clears the local session. */
+/**
+ * Uploads a file as multipart form data. Uses XHR because fetch can't report
+ * upload progress. `onProgress` gets 0–1.
+ */
+export async function upload<T>(
+  path: string,
+  form: FormData,
+  options: {
+    onProgress?: (fraction: number) => void;
+    signal?: AbortSignal;
+  } = {}
+): Promise<T> {
+  const attempt = (token: string) =>
+    new Promise<{ status: number; body: unknown }>((resolve, reject) => {
+      const xhr = new XMLHttpRequest();
+      xhr.open('POST', buildUrl(path));
+      xhr.withCredentials = true;
+      xhr.setRequestHeader('Authorization', `Bearer ${token}`);
+      xhr.upload.onprogress = (e) => {
+        if (e.lengthComputable) options.onProgress?.(e.loaded / e.total);
+      };
+      xhr.onload = () => {
+        let body: unknown = xhr.responseText;
+        try {
+          body = xhr.responseText ? JSON.parse(xhr.responseText) : undefined;
+        } catch {
+          // Plain-text error body.
+        }
+        resolve({ status: xhr.status, body });
+      };
+      xhr.onerror = () =>
+        reject(
+          new ApiError(
+            'The upload failed. Check your connection and try again.',
+            0
+          )
+        );
+      xhr.onabort = () =>
+        reject(new DOMException('Upload cancelled', 'AbortError'));
+      options.signal?.addEventListener('abort', () => xhr.abort());
+      xhr.send(form);
+    });
+
+  const token = await validToken();
+  if (!token) {
+    endSession();
+    throw toApiError(401, undefined);
+  }
+  let result = await attempt(token);
+  if (result.status === 401) {
+    const fresh = await refreshSession();
+    if (!fresh) {
+      endSession();
+      throw toApiError(401, result.body);
+    }
+    result = await attempt(fresh);
+  }
+  if (result.status < 200 || result.status >= 300) {
+    throw toApiError(result.status, result.body);
+  }
+  return result.body as T;
+}
+
+/**
+ * Best-effort server logout (ends the session and clears the refresh
+ * cookie), then clears the local session.
+ */
 export async function signOut() {
-  const { token } = useAuthStore.getState();
+  const token = await validToken().catch(() => null);
   if (token) {
     await send('/v1/auth/logout', { method: 'POST' }, token).catch(
       () => undefined

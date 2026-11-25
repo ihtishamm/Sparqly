@@ -8,11 +8,12 @@ import {
   SidebarTrigger
 } from '@/components/ui/sidebar';
 import { useMe } from '@/lib/api/hooks/auth';
+import { restoreSession } from '@/lib/api/client';
 import { useAuthStore } from '@/store/auth-store';
 import { AppSidebar, Logo } from './app-sidebar';
 
 /**
- * Waits for the persisted session to load from localStorage. Starts false on
+ * Waits for the persisted profile to load from localStorage. Starts false on
  * both server and client (the persist API doesn't exist on the server), so
  * the first client render matches the server HTML.
  */
@@ -41,15 +42,22 @@ export function AppShell({
   const pathname = usePathname();
   useMe();
 
-  // The session cookie outlived the stored tokens (cleared storage, another
-  // browser profile): send them to sign in rather than failing every request.
+  // After a reload only the HttpOnly refresh cookie is left: trade it for an
+  // access token. If it's gone or expired, send them to sign in rather than
+  // failing every request.
   useEffect(() => {
-    if (hydrated && !token) {
+    if (!hydrated || token) return;
+    let cancelled = false;
+    void restoreSession().then((ok) => {
+      if (ok || cancelled) return;
       useAuthStore.getState().clear();
       window.location.assign(
         `/auth/sign-in?callbackUrl=${encodeURIComponent(pathname)}`
       );
-    }
+    });
+    return () => {
+      cancelled = true;
+    };
   }, [hydrated, token, pathname]);
 
   if (!hydrated || !token) {
